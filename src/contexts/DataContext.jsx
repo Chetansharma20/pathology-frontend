@@ -1,0 +1,131 @@
+
+import React, { createContext, useContext, useState, useEffect, useMemo } from 'react';
+
+// APIs - We will implement these properly later
+import { getPatients } from '../api/receptionist/patient.api';
+import { getDoctors } from '../api/admin/doctors.api';
+import { getExpenses } from '../api/admin/expenses.api';
+import { getReports } from '../api/receptionist/reports.api';
+import { getLabTests } from '../api/admin/labTest.api';
+import { getLabDetails, updateLabDetails } from '../api/admin/lab.api';
+
+const DataContext = createContext(null);
+
+export const DataProvider = ({ children }) => {
+    // Global Data State
+    const [patients, setPatients] = useState([]);
+    const [doctors, setDoctors] = useState([]);
+    const [expenses, setExpenses] = useState([]);
+    const [bills, setBills] = useState([]);
+    const [reports, setReports] = useState([]);
+    const [sampleQueue, setSampleQueue] = useState([]);
+    const [labTests, setLabTests] = useState([]);
+
+    // Lab Configuration
+    const [labConfig, setLabConfig] = useState(null);
+
+    // Loading States
+    const [loading, setLoading] = useState(false);
+
+    // Derived Metrics
+    const todayDate = new Date().toLocaleDateString();
+
+    const metrics = useMemo(() => {
+        const dailyCollection = bills.filter(b => b.date === todayDate).reduce((acc, b) => acc + b.finalAmount, 0);
+        const totalExpenses = expenses.reduce((acc, e) => acc + e.amount, 0);
+
+        const docRanking = doctors.map(d => ({
+            ...d,
+            billCount: bills.filter(b => b.doctorId === d.id).length,
+            revenue: bills.filter(b => b.doctorId === d.id).reduce((acc, b) => acc + b.finalAmount, 0)
+        })).sort((a, b) => b.revenue - a.revenue);
+
+        return { dailyCollection, totalExpenses, docRanking };
+    }, [bills, expenses, doctors, todayDate]);
+
+
+    // Initial Data Fetch
+    useEffect(() => {
+        const fetchData = async () => {
+            setLoading(true);
+            try {
+                // Fetch all initial data
+                const [pResponse, dResponse, eData, rData, tData, lData] = await Promise.all([
+                    getPatients().catch(err => { console.error("Patients fetch failed", err); return null; }),
+                    getDoctors().catch(err => { console.error("Doctors fetch failed", err); return null; }),
+                    getExpenses().catch(err => { console.error("Expenses fetch failed", err); return []; }),
+                    getReports().catch(err => { console.error("Reports fetch failed", err); return []; }),
+                    getLabTests().catch(err => { console.error("Lab Tests fetch failed", err); return []; }),
+                    getLabDetails().catch(err => { console.error("Lab Details fetch failed", err); return null; })
+                ]);
+
+                // Handle Patients (Deeply nested due to pagination wrapper)
+                if (pResponse && pResponse.data) {
+                    // Backend returns: { data: { patients: [], pagination: {} } }
+                    // If pResponse.data.patients exists, use it. Else fallback.
+                    const patientsList = pResponse.data?.patients || pResponse.data || [];
+                    setPatients(Array.isArray(patientsList) ? patientsList : []);
+                }
+
+                // Handle Doctors
+                if (dResponse && dResponse.data) {
+                    setDoctors(Array.isArray(dResponse.data) ? dResponse.data : []);
+                }
+
+                if (eData && (eData.data || Array.isArray(eData))) setExpenses(eData.data || eData);
+                if (rData && (rData.data || Array.isArray(rData))) setReports(rData.data || rData);
+                if (tData && (tData.data || Array.isArray(tData))) setLabTests(tData.data || tData);
+                if (lData && lData.data) setLabConfig(lData.data);
+
+            } catch (err) {
+                console.error("Failed to fetch initial data", err);
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        // Only fetch if authenticated (checking token presence locally is a quick check)
+        if (localStorage.getItem('accessToken')) {
+            fetchData();
+        }
+    }, []);
+
+    const updateLabSettings = async (newSettings) => {
+        try {
+            const response = await updateLabDetails(newSettings);
+            if (response.success && response.data) {
+                setLabConfig(response.data);
+                return { success: true };
+            }
+            return { success: false, message: response.message };
+        } catch (error) {
+            console.error("Failed to update lab settings", error);
+            throw error;
+        }
+    };
+
+    return (
+        <DataContext.Provider value={{
+            patients, setPatients,
+            doctors, setDoctors,
+            expenses, setExpenses,
+            bills, setBills,
+            reports, setReports,
+            sampleQueue, setSampleQueue,
+            labTests, setLabTests,
+            labConfig, updateLabSettings,
+            metrics,
+            loading
+        }}>
+            {children}
+        </DataContext.Provider>
+    );
+};
+
+export const useData = () => {
+    const context = useContext(DataContext);
+    if (!context) {
+        throw new Error('useData must be used within a DataProvider');
+    }
+    return context;
+};
