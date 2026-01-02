@@ -1,14 +1,16 @@
 
 import React, { useState, useEffect } from 'react';
 import Card from '../../components/ui/Card';
-import { Database, Edit3, UserPlus, Filter } from 'lucide-react';
-import { getPatients, createPatient, updatePatient } from '../../api/receptionist/patient.api';
+import { Database, Edit3, UserPlus, Filter, Trash2 } from 'lucide-react';
+import { getPatients, createPatient, updatePatient, deletePatient } from '../../api/receptionist/patient.api';
 import { useAuth } from '../../contexts/AuthContext';
 import { useToast } from '../../contexts/ToastContext';
+import { useData } from '../../contexts/DataContext';
 
 const PatientRegistry = () => {
     const { user } = useAuth();
-    const { showToast } = useToast();
+    const { showToast, showConfirm } = useToast();
+    const { refreshTodayPatients } = useData();
 
     // List state
     const [patients, setPatients] = useState([]);
@@ -40,6 +42,7 @@ const PatientRegistry = () => {
     });
 
     const [submitting, setSubmitting] = useState(false);
+    const [showForm, setShowForm] = useState(false);
 
     // Fetch patients
     const fetchPatients = async () => {
@@ -98,10 +101,12 @@ const PatientRegistry = () => {
                 // Create
                 await createPatient(patientForm);
                 showToast("Patient registered successfully", "success");
+                refreshTodayPatients();
             }
 
             // Reset and Refresh
             setPatientForm({ id: null, name: '', phone: '', age: '', gender: 'Male', address: '', email: '', dateOfBirth: '' });
+            setShowForm(false);
             fetchPatients();
 
         } catch (err) {
@@ -110,6 +115,21 @@ const PatientRegistry = () => {
         } finally {
             setSubmitting(false);
         }
+    };
+
+    // Handle delete
+    const handleDelete = (id) => {
+        showConfirm('Are you sure you want to delete this patient record?', async () => {
+            try {
+                await deletePatient(id);
+                showToast('Patient deleted successfully', 'success');
+                refreshTodayPatients();
+                fetchPatients();
+            } catch (error) {
+                console.error('Delete error', error);
+                showToast(error.message || 'Failed to delete patient', 'error');
+            }
+        });
     };
 
     // Handle local form operations (populate form for edit)
@@ -124,6 +144,7 @@ const PatientRegistry = () => {
             email: patient.email || '',
             dateOfBirth: patient.dateOfBirth ? new Date(patient.dateOfBirth).toISOString().split('T')[0] : ''
         });
+        setShowForm(true);
         // Scroll to top to see form
         window.scrollTo({ top: 0, behavior: 'smooth' });
     };
@@ -152,30 +173,47 @@ const PatientRegistry = () => {
                         Manage patient records and information
                     </p>
                 </div>
-                <div
-                    className="rounded-lg px-4 py-2"
-                    style={{
-                        backgroundColor: 'var(--bg-secondary)',
-                        border: '1px solid var(--border-primary)'
-                    }}
-                >
-                    <div
-                        className="text-sm font-medium"
-                        style={{ color: 'var(--accent-indigo)' }}
+                <div className="flex gap-2">
+                    <button
+                        onClick={() => {
+                            setPatientForm({ id: null, name: '', phone: '', age: '', gender: 'Male', address: '', email: '', dateOfBirth: '' });
+                            setShowForm(!showForm);
+                        }}
+                        className="flex items-center gap-2 px-4 py-2 rounded-lg font-medium text-sm transition-colors"
+                        style={{
+                            backgroundColor: showForm && !patientForm.id ? 'var(--button-secondary)' : 'var(--accent-indigo)',
+                            color: showForm && !patientForm.id ? 'var(--text-primary)' : 'var(--text-inverse)',
+                            border: showForm && !patientForm.id ? '1px solid var(--border-primary)' : 'none'
+                        }}
                     >
-                        Total Patients
-                    </div>
+                        <UserPlus size={18} />
+                        {showForm && !patientForm.id ? 'Hide Form' : 'Register Patient'}
+                    </button>
                     <div
-                        className="text-lg font-bold"
-                        style={{ color: 'var(--accent-indigo)' }}
+                        className="rounded-lg px-4 py-2"
+                        style={{
+                            backgroundColor: 'var(--bg-secondary)',
+                            border: '1px solid var(--border-primary)'
+                        }}
                     >
-                        {pagination.total}
+                        <div
+                            className="text-sm font-medium"
+                            style={{ color: 'var(--accent-indigo)' }}
+                        >
+                            Total Patients
+                        </div>
+                        <div
+                            className="text-lg font-bold"
+                            style={{ color: 'var(--accent-indigo)' }}
+                        >
+                            {pagination.total}
+                        </div>
                     </div>
                 </div>
             </div>
 
             {/* Add Patient Form (Receptionist Only) */}
-            {user && (user.role === 'Operator' || user.role === 'Admin') && (
+            {user && (user.role === 'Operator' || user.role === 'Admin') && showForm && (
                 <Card title={patientForm.id ? "Edit Patient" : "Add New Patient"} icon={patientForm.id ? Edit3 : UserPlus}>
                     <form className="space-y-4" onSubmit={handlePatientCRUD}>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -300,21 +338,22 @@ const PatientRegistry = () => {
                             >
                                 {submitting ? 'Saving...' : (patientForm.id ? 'Update Patient' : 'Register Patient')}
                             </button>
-                            {patientForm.id && (
-                                <button
-                                    type="button"
-                                    onClick={() => setPatientForm({ id: null, name: '', phone: '', age: '', gender: 'Male', address: '', email: '', dateOfBirth: '' })}
-                                    className="px-4 py-2.5 rounded-lg font-medium text-sm transition-colors"
-                                    style={{
-                                        backgroundColor: 'var(--button-secondary)',
-                                        color: 'var(--text-primary)'
-                                    }}
-                                    onMouseEnter={(e) => e.target.style.backgroundColor = 'var(--button-secondary-hover)'}
-                                    onMouseLeave={(e) => e.target.style.backgroundColor = 'var(--button-secondary)'}
-                                >
-                                    Cancel
-                                </button>
-                            )}
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    setPatientForm({ id: null, name: '', phone: '', age: '', gender: 'Male', address: '', email: '', dateOfBirth: '' });
+                                    setShowForm(false);
+                                }}
+                                className="px-4 py-2.5 rounded-lg font-medium text-sm transition-colors"
+                                style={{
+                                    backgroundColor: 'var(--button-secondary)',
+                                    color: 'var(--text-primary)'
+                                }}
+                                onMouseEnter={(e) => e.target.style.backgroundColor = 'var(--button-secondary-hover)'}
+                                onMouseLeave={(e) => e.target.style.backgroundColor = 'var(--button-secondary)'}
+                            >
+                                Cancel
+                            </button>
                         </div>
                     </form>
                 </Card>
@@ -366,7 +405,7 @@ const PatientRegistry = () => {
                             <option value="Other">Other</option>
                         </select>
                     </div>
-                    <div>
+                    {/* <div>
                         <label
                             className="block text-sm font-medium mb-1"
                             style={{ color: 'var(--text-primary)' }}
@@ -389,7 +428,7 @@ const PatientRegistry = () => {
                             <option value="sent">Sent</option>
                             <option value="failed">Failed</option>
                         </select>
-                    </div>
+                    </div> */}
                     <div className="flex items-end">
                         <button
                             onClick={() => setFilters({ search: '', gender: '', reportStatus: '' })}
@@ -437,13 +476,13 @@ const PatientRegistry = () => {
                                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                                             Contact
                                         </th>
-                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                        {/* <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                                             Report Status
-                                        </th>
+                                        </th> */}
                                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                                             Last Updated
                                         </th>
-                                        {user && user.role === 'Operator' && (
+                                        {user && (user.role === 'Operator' || user.role === 'Admin') && (
                                             <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
                                                 Actions
                                             </th>
@@ -472,7 +511,7 @@ const PatientRegistry = () => {
                                                     <div className="text-xs text-gray-400">{patient.email}</div>
                                                 )}
                                             </td>
-                                            <td className="px-6 py-4 whitespace-nowrap">
+                                            {/* <td className="px-6 py-4 whitespace-nowrap">
                                                 <span className={`px-2 py-1 text-xs font-medium rounded-full ${patient.reportStatus === 'generated' ? 'bg-green-100 text-green-800' :
                                                     patient.reportStatus === 'sent' ? 'bg-blue-100 text-blue-800' :
                                                         patient.reportStatus === 'failed' ? 'bg-red-100 text-red-800' :
@@ -480,19 +519,26 @@ const PatientRegistry = () => {
                                                     }`}>
                                                     {patient.reportStatus || 'pending'}
                                                 </span>
-                                            </td>
+                                            </td> */}
                                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                                                 {formatDate(patient.updatedAt || patient.createdAt)}
                                             </td>
-                                            {user && user.role === 'Operator' && (
+                                            {user && (user.role === 'Operator' || user.role === 'Admin') && (
                                                 <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                                                    <div className="flex justify-end space-x-2">
+                                                    <div className="flex justify-end space-x-3">
                                                         <button
                                                             onClick={() => handleLocalEdit(patient)}
-                                                            className="text-indigo-600 hover:text-indigo-900"
+                                                            className="text-indigo-600 hover:text-indigo-900 transition-colors"
                                                             title="Edit Patient"
                                                         >
-                                                            <Edit3 size={16} />
+                                                            <Edit3 size={18} />
+                                                        </button>
+                                                        <button
+                                                            onClick={() => handleDelete(patient._id || patient.id)}
+                                                            className="text-red-600 hover:text-red-900 transition-colors"
+                                                            title="Delete Patient"
+                                                        >
+                                                            <Trash2 size={18} />
                                                         </button>
                                                     </div>
                                                 </td>

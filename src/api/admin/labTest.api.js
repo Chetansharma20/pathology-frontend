@@ -4,8 +4,6 @@ import axiosClient from '../axiosClient';
 export const getLabTests = async (params = {}) => {
   try {
     const response = await axiosClient.get('/labtest/gettests', { params });
-    // Assuming backend returns { data: [...], ... } or just array
-    // Adjust based on actual backend response structure in controller
     return response;
   } catch (error) {
     console.error('Error fetching lab tests:', error);
@@ -17,7 +15,7 @@ export const getLabTests = async (params = {}) => {
 export const createLabTest = async (testData) => {
   try {
     const response = await axiosClient.post('/labtest/createtest', testData);
-    return response.data;
+    return response;
   } catch (error) {
     console.error('Error creating lab test:', error);
     throw error;
@@ -28,7 +26,7 @@ export const createLabTest = async (testData) => {
 export const updateLabTest = async (testId, testData) => {
   try {
     const response = await axiosClient.put(`/labtest/updatetest/${testId}`, testData);
-    return response.data;
+    return response;
   } catch (error) {
     console.error('Error updating lab test:', error);
     throw error;
@@ -39,7 +37,7 @@ export const updateLabTest = async (testId, testData) => {
 export const deleteLabTest = async (testId) => {
   try {
     const response = await axiosClient.delete(`/labtest/${testId}`);
-    return response.data;
+    return response;
   } catch (error) {
     console.error('Error deleting lab test:', error);
     throw error;

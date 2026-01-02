@@ -1,12 +1,13 @@
 
 import {
     LayoutDashboard, TrendingDown, Microscope, Stethoscope,
-    Database, CreditCard, ClipboardList, Settings2
+    Database, CreditCard, ClipboardList, Settings2, DollarSign
 } from 'lucide-react';
 
 export const NAV_MENU = [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, roles: ['Admin'], path: '/dashboard' },
     { id: 'expenses', label: 'Expenses', icon: TrendingDown, roles: ['Admin'], path: '/expenses' },
+    { id: 'revenue', label: 'Revenue', icon: DollarSign, roles: ['Admin'], path: '/revenue' },
     { id: 'tests', label: 'Tests', icon: Microscope, roles: ['Admin'], path: '/tests' },
     { id: 'doctors', label: 'Doctors', icon: Stethoscope, roles: ['Admin'], path: '/doctors' },
     { id: 'patients', label: 'Patients', icon: Database, roles: ['Admin', 'Operator'], path: '/patients' },

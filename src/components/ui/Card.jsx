@@ -2,7 +2,7 @@ import React from 'react';
 
 const Card = ({ children, title, subtitle, icon: Icon, actions, noPadding = false, className = "" }) => (
   <div
-    className={`rounded-2xl shadow-sm flex flex-col overflow-hidden ${className}`}
+    className={`rounded-2xl shadow-sm flex flex-col overflow-hidden transition-all duration-300 ${className}`}
     style={{
       backgroundColor: 'var(--bg-card)',
       border: '1px solid var(--border-primary)',

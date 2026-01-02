@@ -3,6 +3,7 @@ import React, { useState, useEffect } from 'react';
 import Card from '../../components/ui/Card';
 import { IndianRupee, Users, Bell, TrendingUp, BarChart4, Microscope, Activity, Plus, FileText, TestTube } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { getTodayPatients } from '../../api/receptionist/patient.api';
 
 // Contexts
 import { useAuth } from '../../contexts/AuthContext';
@@ -59,14 +60,24 @@ const AdminDashboard = () => {
     const {
         patients = [],
         doctors = [],
-        metrics = { dailyCollection: 0, totalExpenses: 0, monthlyRevenue: 0 }
+        todayPatients = [],
+        labTests = [],
+        refreshTodayPatients,
+        metrics = { dailyCollection: 0, totalExpenses: 0, monthlyRevenue: 0, totalRevenue: 0 },
+        loading: contextLoading
     } = useData();
 
-    // Use mock data from props instead of API calls
+    useEffect(() => {
+        if (refreshTodayPatients) {
+            refreshTodayPatients();
+        }
+    }, []);
+
+    // System overview with real data
     const systemOverview = {
         totalPatients: patients.length || 0,
-        totalTests: 3, // Mock test count
-        totalRevenue: 0, // Revenue data not available yet
+        totalTests: labTests.length || 0,
+        totalRevenue: metrics.totalRevenue || 0,
         totalExpenses: metrics.totalExpenses || 0
     };
 
@@ -112,7 +123,7 @@ const AdminDashboard = () => {
 
         const actions = [];
 
-        if (user.role === 'Operator') {
+        if (user.role === 'RECEPTIONIST') {
             // Receptionist actions
             actions.push(
                 {
@@ -184,20 +195,13 @@ const AdminDashboard = () => {
 
             {/* System Overview Section */}
             <Card title="System Overview" icon={Activity}>
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
                     <StatCard
-                        title="Total Patients"
-                        value={(systemOverview.totalPatients || 0).toLocaleString()}
+                        title="Today's Patients"
+                        value={contextLoading ? "..." : (todayPatients.length || 0).toLocaleString()}
                         icon={Users}
                         color="text-blue-700 bg-blue-50"
-                        subtitle="Registered patients"
-                    />
-                    <StatCard
-                        title="Total Tests"
-                        value={(systemOverview.totalTests || 0).toLocaleString()}
-                        icon={Microscope}
-                        color="text-green-700 bg-green-50"
-                        subtitle="Available test types"
+                        subtitle="Registered today Patients"
                     />
                     <StatCard
                         title="Total Revenue"
@@ -214,6 +218,57 @@ const AdminDashboard = () => {
                         subtitle="All-time expenses"
                     />
                 </div>
+            </Card>
+
+            {/* Today's Patients Section */}
+            <Card title="Today's Registered Patients" icon={Users} noPadding>
+                {contextLoading ? (
+                    <div className="p-8 text-center">
+                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600 mx-auto"></div>
+                        <p className="text-gray-500 mt-2">Loading today's patients...</p>
+                    </div>
+                ) : todayPatients.length === 0 ? (
+                    <div className="p-8 text-center text-gray-500">
+                        <Users size={48} className="mx-auto mb-4 opacity-50" />
+                        <p>No patients registered today</p>
+                    </div>
+                ) : (
+                    <div className="overflow-x-auto">
+                        <table className="w-full text-sm">
+                            <thead className="bg-gray-50 border-b">
+                                <tr>
+                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Time</th>
+                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Patient Name</th>
+                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Contact</th>
+                                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Action</th>
+                                </tr>
+                            </thead>
+                            <tbody className="bg-white divide-y divide-gray-200">
+                                {todayPatients.map((patient) => (
+                                    <tr key={patient._id} className="hover:bg-gray-50">
+                                        <td className="px-6 py-4 whitespace-nowrap text-gray-500">
+                                            {new Date(patient.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                        </td>
+                                        <td className="px-6 py-4 whitespace-nowrap font-medium text-gray-900">
+                                            {patient.fullName}
+                                        </td>
+                                        <td className="px-6 py-4 whitespace-nowrap text-gray-500">
+                                            {patient.phone}
+                                        </td>
+                                        <td className="px-6 py-4 whitespace-nowrap text-right">
+                                            <button
+                                                onClick={() => navigate('/patients')}
+                                                className="text-indigo-600 hover:text-indigo-900 font-medium"
+                                            >
+                                                View details
+                                            </button>
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+                )}
             </Card>
 
             {/* Quick Actions Section */}
@@ -235,155 +290,6 @@ const AdminDashboard = () => {
             )}
 
             {/* Receptionist Management & Recent Expenses (Admin Only) */}
-            {user && user.role === 'Admin' && (
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                    {/* Receptionist Management */}
-                    <Card title="Receptionist Management" icon={Users} noPadding>
-                        <div className="overflow-x-auto">
-                            <table className="w-full text-sm">
-                                <thead className="bg-gray-50 border-b">
-                                    <tr>
-                                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                            Name
-                                        </th>
-                                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                            Status
-                                        </th>
-                                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                            Created
-                                        </th>
-                                    </tr>
-                                </thead>
-                                <tbody className="bg-white divide-y divide-gray-200">
-                                    {receptionists.length === 0 ? (
-                                        <tr>
-                                            <td colSpan="3" className="px-4 py-8 text-center text-gray-500">
-                                                No receptionists found
-                                            </td>
-                                        </tr>
-                                    ) : (
-                                        receptionists.slice(0, 5).map((receptionist) => (
-                                            <tr key={receptionist._id || receptionist.id} className="hover:bg-gray-50">
-                                                <td className="px-4 py-3 whitespace-nowrap">
-                                                    <div className="text-sm font-medium text-gray-900">
-                                                        {receptionist.name}
-                                                    </div>
-                                                    <div className="text-sm text-gray-500">
-                                                        {receptionist.mobile}
-                                                    </div>
-                                                </td>
-                                                <td className="px-4 py-3 whitespace-nowrap">
-                                                    <span className={`px-2 py-1 text-xs font-medium rounded-full ${receptionist.status === 'Active'
-                                                        ? 'bg-green-100 text-green-800'
-                                                        : 'bg-red-100 text-red-800'
-                                                        }`}>
-                                                        {receptionist.status}
-                                                    </span>
-                                                </td>
-                                                <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500">
-                                                    {receptionist.createdAt ? new Date(receptionist.createdAt).toLocaleDateString() : '-'}
-                                                </td>
-                                            </tr>
-                                        ))
-                                    )}
-                                </tbody>
-                            </table>
-                        </div>
-                        <div className="px-4 py-3 border-t bg-gray-50">
-                            <button
-                                onClick={() => navigate('/receptionists')}
-                                className="w-full text-center text-sm text-indigo-600 hover:text-indigo-800 font-medium"
-                            >
-                                View All Receptionists →
-                            </button>
-                        </div>
-                    </Card>
-
-                    {/* Recent Expenses */}
-                    <Card title="Recent Expenses" icon={Bell} noPadding>
-                        <div className="overflow-x-auto">
-                            <table className="w-full text-sm">
-                                <thead className="bg-gray-50 border-b">
-                                    <tr>
-                                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                            Title
-                                        </th>
-                                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                            Category
-                                        </th>
-                                        <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                            Amount
-                                        </th>
-                                    </tr>
-                                </thead>
-                                <tbody className="bg-white divide-y divide-gray-200">
-                                    {recentExpenses.length === 0 ? (
-                                        <tr>
-                                            <td colSpan="3" className="px-4 py-8 text-center text-gray-500">
-                                                No expenses found
-                                            </td>
-                                        </tr>
-                                    ) : (
-                                        recentExpenses.slice(0, 5).map((expense) => (
-                                            <tr key={expense._id || expense.id} className="hover:bg-gray-50">
-                                                <td className="px-4 py-3 whitespace-nowrap">
-                                                    <div className="text-sm font-medium text-gray-900">
-                                                        {expense.title}
-                                                    </div>
-                                                    <div className="text-sm text-gray-500">
-                                                        {expense.date ? new Date(expense.date).toLocaleDateString() : ''}
-                                                    </div>
-                                                </td>
-                                                <td className="px-4 py-3 whitespace-nowrap">
-                                                    <span className="px-2 py-1 text-xs font-medium rounded-full bg-gray-100 text-gray-800">
-                                                        {expense.category?.replace('_', ' ') || 'N/A'}
-                                                    </span>
-                                                </td>
-                                                <td className="px-4 py-3 whitespace-nowrap text-right text-sm font-medium text-red-600">
-                                                    {formatCurrency(expense.amount)}
-                                                </td>
-                                            </tr>
-                                        ))
-                                    )}
-                                </tbody>
-                            </table>
-                        </div>
-                        <div className="px-4 py-3 border-t bg-gray-50">
-                            <button
-                                onClick={() => navigate('/expenses')}
-                                className="w-full text-center text-sm text-indigo-600 hover:text-indigo-800 font-medium"
-                            >
-                                View All Expenses →
-                            </button>
-                        </div>
-                    </Card>
-                </div>
-            )}
-
-            {/* System Status */}
-            <div className="grid grid-cols-1 gap-8">
-                <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm">
-                    <div className="flex items-center gap-3 mb-6">
-                        <div className="p-2 bg-purple-50 rounded-lg">
-                            <BarChart4 size={20} className="text-purple-600" />
-                        </div>
-                        <div>
-                            <h3 className="font-semibold text-gray-900">System Status</h3>
-                            <p className="text-sm text-gray-500">Management Dashboard</p>
-                        </div>
-                    </div>
-                    <div className="text-center space-y-4">
-                        <p className="text-xl font-bold text-gray-900">DIGITOS Pathology Lab</p>
-                        <p className="text-gray-600">Streamlining healthcare operations with precision and care</p>
-                        <div className="pt-4">
-                            <div className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-50 rounded-lg">
-                                <div className="w-2 h-2 bg-indigo-500 rounded-full animate-pulse"></div>
-                                <span className="text-sm font-medium text-indigo-700">System Online</span>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
         </div>
     );
 };

@@ -6,6 +6,7 @@ const axiosClient = axios.create({
   withCredentials: true,
   headers: {
     'Content-Type': 'application/json',
+
   },
 });
 
@@ -35,7 +36,7 @@ axiosClient.interceptors.response.use(
       localStorage.removeItem('accessToken');
       localStorage.removeItem('digitos-user');
       // Optional: Redirect to login or dispatch an event
-      // window.location.href = '/login'; 
+      // window.location.href = '/login';
     }
 
     // Throw error so it can be caught in UI/Context

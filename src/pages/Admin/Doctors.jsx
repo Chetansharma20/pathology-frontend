@@ -7,7 +7,7 @@ import { useToast } from '../../contexts/ToastContext';
 import { useAuth } from '../../contexts/AuthContext';
 
 const DoctorsSection = () => {
-    const { showToast } = useToast();
+    const { showToast, showConfirm } = useToast();
     const { user } = useAuth();
 
     // Form state
@@ -50,11 +50,12 @@ const DoctorsSection = () => {
                 page: pagination.page,
                 limit: pagination.limit
             });
-            setDoctors(response.data || response.doctors || []);
+            const doctorsList = response.data || response.doctors || [];
+            setDoctors(doctorsList);
             setPagination(prev => ({
                 ...prev,
-                total: response.total || 0,
-                totalPages: response.totalPages || 0
+                total: response.total !== undefined ? response.total : doctorsList.length,
+                totalPages: response.totalPages || Math.ceil(doctorsList.length / prev.limit) || 1
             }));
         } catch (error) {
             showToast('Failed to fetch doctors', 'error');
@@ -165,19 +166,17 @@ const DoctorsSection = () => {
     };
 
     // Handle delete
-    const handleDelete = async (doctorId) => {
-        if (!window.confirm('Are you sure you want to delete this doctor? This action cannot be undone.')) {
-            return;
-        }
-
-        try {
-            await deleteDoctor(doctorId);
-            showToast('Doctor deleted successfully');
-            fetchDoctors();
-        } catch (error) {
-            showToast('Failed to delete doctor', 'error');
-            console.error('Delete doctor error:', error);
-        }
+    const handleDelete = (doctorId) => {
+        showConfirm('Are you sure you want to delete this doctor? This action cannot be undone.', async () => {
+            try {
+                await deleteDoctor(doctorId);
+                showToast('Doctor deleted successfully');
+                fetchDoctors();
+            } catch (error) {
+                showToast('Failed to delete doctor', 'error');
+                console.error('Delete doctor error:', error);
+            }
+        });
     };
 
     return (
@@ -188,12 +187,12 @@ const DoctorsSection = () => {
                     <h2 className="text-2xl font-black text-slate-800">Doctor Management</h2>
                     <p className="text-slate-600 mt-1">Manage doctor profiles and commission settings</p>
                 </div>
-                {/* <div className="bg-blue-50 border border-blue-200 rounded-lg px-4 py-2">
+                <div className="bg-blue-50 border border-blue-200 rounded-lg px-4 py-2">
                     <div className="text-sm text-blue-600 font-medium">Total Doctors</div>
                     <div className="text-lg font-bold text-blue-700">
                         {pagination.total}
                     </div>
-                </div> */}
+                </div>
             </div>
 
             {/* Add Doctor Button */}
