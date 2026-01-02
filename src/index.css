@@ -1,0 +1,137 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Theme Variables - Light Mode (Default) */
+:root {
+  /* Background Colors */
+  --bg-primary: #fdfdff;
+  --bg-secondary: #f8fafc;
+  --bg-tertiary: #ffffff;
+  --bg-sidebar: #ffffff;
+  --bg-card: #ffffff;
+  --bg-input: #f8fafc;
+  --bg-hover: #f1f5f9;
+  --bg-modal: #ffffff;
+  --bg-toast: #ffffff;
+
+  /* Text Colors */
+  --text-primary: #0f172a;
+  --text-secondary: #475569;
+  --text-tertiary: #64748b;
+  --text-muted: #94a3b8;
+  --text-inverse: #ffffff;
+  --text-placeholder: #cbd5e1;
+  --text-link: #3b82f6;
+
+  /* Border Colors */
+  --border-primary: #e2e8f0;
+  --border-secondary: #cbd5e1;
+  --border-focus: #3b82f6;
+  --border-error: #ef4444;
+
+  /* Status Colors */
+  --status-success: #10b981;
+  --status-error: #ef4444;
+  --status-warning: #f59e0b;
+  --status-info: #3b82f6;
+
+  /* Button Colors */
+  --button-primary: #3b82f6;
+  --button-primary-hover: #2563eb;
+  --button-secondary: #f1f5f9;
+  --button-secondary-hover: #e2e8f0;
+  --button-danger: #ef4444;
+  --button-danger-hover: #dc2626;
+
+  /* Input Colors */
+  --input-border: #cbd5e1;
+  --input-border-focus: #3b82f6;
+  --input-bg: #ffffff;
+  --input-text: #0f172a;
+
+  /* Shadow Colors */
+  --shadow-sm: rgba(0, 0, 0, 0.05);
+  --shadow-md: rgba(0, 0, 0, 0.1);
+  --shadow-lg: rgba(0, 0, 0, 0.15);
+  --shadow-xl: rgba(0, 0, 0, 0.2);
+
+  /* Accent Colors */
+  --accent-indigo: #3b82f6;
+  --accent-emerald: #10b981;
+  --accent-orange: #f97316;
+  --accent-purple: #8b5cf6;
+  --accent-rose: #ef4444;
+}
+
+/* Theme Variables - Dark Mode */
+[data-theme="dark"] {
+  /* Background Colors */
+  --bg-primary: #0f172a;
+  --bg-secondary: #1e293b;
+  --bg-tertiary: #334155;
+  --bg-sidebar: #1e293b;
+  --bg-card: #334155;
+  --bg-input: #1e293b;
+  --bg-hover: #475569;
+  --bg-modal: #334155;
+  --bg-toast: #334155;
+
+  /* Text Colors */
+  --text-primary: #f8fafc;
+  --text-secondary: #cbd5e1;
+  --text-tertiary: #94a3b8;
+  --text-muted: #64748b;
+  --text-inverse: #0f172a;
+  --text-placeholder: #64748b;
+  --text-link: #60a5fa;
+
+  /* Border Colors */
+  --border-primary: #334155;
+  --border-secondary: #475569;
+  --border-focus: #60a5fa;
+  --border-error: #f87171;
+
+  /* Status Colors */
+  --status-success: #34d399;
+  --status-error: #f87171;
+  --status-warning: #fbbf24;
+  --status-info: #60a5fa;
+
+  /* Button Colors */
+  --button-primary: #60a5fa;
+  --button-primary-hover: #3b82f6;
+  --button-secondary: #475569;
+  --button-secondary-hover: #334155;
+  --button-danger: #f87171;
+  --button-danger-hover: #ef4444;
+
+  /* Input Colors */
+  --input-border: #475569;
+  --input-border-focus: #60a5fa;
+  --input-bg: #334155;
+  --input-text: #f8fafc;
+
+  /* Shadow Colors */
+  --shadow-sm: rgba(0, 0, 0, 0.3);
+  --shadow-md: rgba(0, 0, 0, 0.4);
+  --shadow-lg: rgba(0, 0, 0, 0.5);
+  --shadow-xl: rgba(0, 0, 0, 0.6);
+
+  /* Accent Colors */
+  --accent-indigo: #60a5fa;
+  --accent-emerald: #34d399;
+  --accent-orange: #fb923c;
+  --accent-purple: #a78bfa;
+  --accent-rose: #f87171;
+}
+
+/* Smooth theme transitions */
+* {
+  transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease;
+}
+
+/* Ensure no flash of incorrect theme */
+html {
+  background-color: var(--bg-primary);
+}
