@@ -60,3 +60,13 @@ export const getTodayPatients = async () => {
     throw error;
   }
 };
+
+export const getPatientById = async (id) => {
+  try {
+    const response = await axiosClient.get(`/patient/getpatientbyid/${id}`);
+    return response;
+  } catch (error) {
+    console.error("Error fetching patient details:", error);
+    throw error;
+  }
+};

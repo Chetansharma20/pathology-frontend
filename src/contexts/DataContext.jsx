@@ -13,8 +13,10 @@ const DataContext = createContext(null);
 export const DataProvider = ({ children }) => {
     // Global Data State
     const [patients, setPatients] = useState([]);
+    const [totalPatients, setTotalPatients] = useState(0);
     const [todayPatients, setTodayPatients] = useState([]);
     const [doctors, setDoctors] = useState([]);
+    const [totalDoctors, setTotalDoctors] = useState(0);
     const [expenses, setExpenses] = useState([]);
     const [bills, setBills] = useState([]);
     const [reports, setReports] = useState([]);
@@ -65,15 +67,16 @@ export const DataProvider = ({ children }) => {
 
                 // Handle Patients (Deeply nested due to pagination wrapper)
                 if (pResponse && pResponse.data) {
-                    // Backend returns: { data: { patients: [], pagination: {} } }
-                    // If pResponse.data.patients exists, use it. Else fallback.
                     const patientsList = pResponse.data?.patients || pResponse.data || [];
                     setPatients(Array.isArray(patientsList) ? patientsList : []);
+                    setTotalPatients(pResponse.data?.pagination?.totalRecords || (Array.isArray(patientsList) ? patientsList.length : 0));
                 }
 
-                // Handle Doctors
+                // Handle Doctors (Now paginated)
                 if (dResponse && dResponse.data) {
-                    setDoctors(Array.isArray(dResponse.data) ? dResponse.data : []);
+                    const doctorsList = dResponse.data?.doctors || dResponse.data || [];
+                    setDoctors(Array.isArray(doctorsList) ? doctorsList : []);
+                    setTotalDoctors(dResponse.data?.pagination?.totalRecords || (Array.isArray(doctorsList) ? doctorsList.length : 0));
                 }
 
                 if (eData && (eData.data || Array.isArray(eData))) setExpenses(eData.data || eData);
@@ -122,9 +125,9 @@ export const DataProvider = ({ children }) => {
 
     return (
         <DataContext.Provider value={{
-            patients, setPatients,
+            patients, setPatients, totalPatients,
             todayPatients, setTodayPatients, refreshTodayPatients,
-            doctors, setDoctors,
+            doctors, setDoctors, totalDoctors,
             expenses, setExpenses,
             bills, setBills,
             reports, setReports,

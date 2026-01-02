@@ -1,16 +1,18 @@
 
 import React, { useState, useEffect } from 'react';
 import Card from '../../components/ui/Card';
-import { Database, Edit3, UserPlus, Filter, Trash2 } from 'lucide-react';
-import { getPatients, createPatient, updatePatient, deletePatient } from '../../api/receptionist/patient.api';
+import { Database, Edit3, UserPlus, Filter, Trash2, Eye, X, Microscope } from 'lucide-react';
+import { getPatients, createPatient, updatePatient, deletePatient, getPatientById } from '../../api/receptionist/patient.api';
 import { useAuth } from '../../contexts/AuthContext';
 import { useToast } from '../../contexts/ToastContext';
 import { useData } from '../../contexts/DataContext';
+import { useNavigate } from 'react-router-dom';
 
 const PatientRegistry = () => {
     const { user } = useAuth();
     const { showToast, showConfirm } = useToast();
     const { refreshTodayPatients } = useData();
+    const navigate = useNavigate();
 
     // List state
     const [patients, setPatients] = useState([]);
@@ -43,6 +45,9 @@ const PatientRegistry = () => {
 
     const [submitting, setSubmitting] = useState(false);
     const [showForm, setShowForm] = useState(false);
+    const [showDetailModal, setShowDetailModal] = useState(false);
+    const [selectedPatientDetail, setSelectedPatientDetail] = useState(null);
+    const [detailLoading, setDetailLoading] = useState(false);
 
     // Fetch patients
     const fetchPatients = async () => {
@@ -153,6 +158,23 @@ const PatientRegistry = () => {
     const formatDate = (dateString) => {
         if (!dateString) return '-';
         return new Date(dateString).toLocaleDateString('en-IN');
+    };
+
+    // Handle view detail
+    const handleViewDetail = async (id) => {
+        try {
+            setDetailLoading(true);
+            setShowDetailModal(true);
+            const response = await getPatientById(id);
+            if (response.data) {
+                setSelectedPatientDetail(response.data);
+            }
+        } catch (error) {
+            showToast('Failed to fetch patient details', 'error');
+            setShowDetailModal(false);
+        } finally {
+            setDetailLoading(false);
+        }
     };
 
     return (
@@ -360,6 +382,115 @@ const PatientRegistry = () => {
             )}
 
             {/* Filters */}
+            {/* Patient Detail Modal */}
+            {showDetailModal && (
+                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+                    <div className="bg-white rounded-xl max-w-2xl w-full overflow-hidden shadow-2xl">
+                        <div className="p-6 border-b bg-indigo-600 text-white flex justify-between items-center">
+                            <h3 className="text-xl font-bold flex items-center gap-2">
+                                <Database size={24} />
+                                Patient Details
+                            </h3>
+                            <button onClick={() => { setShowDetailModal(false); setSelectedPatientDetail(null); }} className="hover:bg-indigo-700 p-1 rounded-full transition-colors">
+                                <X size={24} />
+                            </button>
+                        </div>
+
+                        <div className="p-6 space-y-6 max-h-[75vh] overflow-y-auto">
+                            {detailLoading ? (
+                                <div className="py-12 text-center">
+                                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600 mx-auto"></div>
+                                    <p className="text-gray-500 mt-4">Retrieving patient record...</p>
+                                </div>
+                            ) : selectedPatientDetail ? (
+                                <div className="space-y-6">
+                                    <div className="flex items-center gap-4">
+                                        <div className="bg-indigo-100 p-4 rounded-full text-indigo-600">
+                                            <UserPlus size={32} />
+                                        </div>
+                                        <div>
+                                            <h4 className="text-2xl font-bold text-gray-900">{selectedPatientDetail.fullName}</h4>
+                                            <p className="text-indigo-600 font-medium">Patient ID: {selectedPatientDetail._id}</p>
+                                        </div>
+                                    </div>
+
+                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                        <div className="bg-gray-50 p-4 rounded-xl border border-gray-100 text-center">
+                                            <p className="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-1">Age</p>
+                                            <p className="text-xl font-bold text-gray-900">{selectedPatientDetail.age} Years</p>
+                                        </div>
+                                        <div className="bg-gray-50 p-4 rounded-xl border border-gray-100 text-center">
+                                            <p className="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-1">Gender</p>
+                                            <p className="text-xl font-bold text-gray-900">{selectedPatientDetail.gender}</p>
+                                        </div>
+                                        <div className="bg-gray-50 p-4 rounded-xl border border-gray-100 text-center">
+                                            <p className="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-1">Status</p>
+                                            <span className={`px-2 py-1 text-xs font-bold rounded-full ${selectedPatientDetail.isActive ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+                                                {selectedPatientDetail.isActive ? 'ACTIVE' : 'INACTIVE'}
+                                            </span>
+                                        </div>
+                                    </div>
+
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        <div className="bg-gray-50 p-4 rounded-xl border border-gray-100">
+                                            <p className="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-1">Phone Number</p>
+                                            <p className="text-gray-900 font-medium font-mono">{selectedPatientDetail.phone || 'N/A'}</p>
+                                        </div>
+                                        <div className="bg-gray-50 p-4 rounded-xl border border-gray-100">
+                                            <p className="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-1">Email Address</p>
+                                            <p className="text-gray-900 font-medium break-all">{selectedPatientDetail.email || 'No email registered'}</p>
+                                        </div>
+                                    </div>
+
+                                    <div className="bg-gray-50 p-4 rounded-xl border border-gray-100">
+                                        <p className="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-2">Residential Address</p>
+                                        <p className="text-gray-700 leading-relaxed">
+                                            {selectedPatientDetail.address?.street}
+                                            {selectedPatientDetail.address?.city && `, ${selectedPatientDetail.address.city}`}
+                                            {selectedPatientDetail.address?.state && `, ${selectedPatientDetail.address.state}`}
+                                            {selectedPatientDetail.address?.pincode && ` - ${selectedPatientDetail.address.pincode}`}
+                                            {!selectedPatientDetail.address?.street && (selectedPatientDetail.address || 'Address not provided')}
+                                        </p>
+                                    </div>
+
+                                    {selectedPatientDetail.dateOfBirth && (
+                                        <div className="bg-gray-50 p-4 rounded-xl border border-gray-100">
+                                            <p className="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-1">Date of Birth</p>
+                                            <p className="text-gray-900 font-medium">{new Date(selectedPatientDetail.dateOfBirth).toLocaleDateString('en-IN', { day: '2-digit', month: 'long', year: 'numeric' })}</p>
+                                        </div>
+                                    )}
+
+                                    <div className="border-t pt-4 grid grid-cols-2 gap-4">
+                                        <div className="text-xs text-gray-400">
+                                            <p className="font-semibold text-gray-500 mb-1">Registered At</p>
+                                            <p>{new Date(selectedPatientDetail.createdAt).toLocaleString()}</p>
+                                        </div>
+                                        <div className="text-xs text-gray-400">
+                                            <p className="font-semibold text-gray-500 mb-1">Last Updated</p>
+                                            <p>{new Date(selectedPatientDetail.updatedAt).toLocaleString()}</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            ) : (
+                                <div className="text-center py-8 text-gray-500 italic">
+                                    Patient information is unavailable at the moment.
+                                </div>
+                            )}
+                        </div>
+
+                        <div className="p-4 bg-gray-50 border-t flex justify-end">
+                            <button
+                                onClick={() => { setShowDetailModal(false); setSelectedPatientDetail(null); }}
+                                className="px-8 py-2.5 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300 transition-colors font-bold tracking-wide"
+                            >
+                                CLOSE
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Filters */}
             <Card title="Filters" icon={Filter}>
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                     <div>
@@ -526,6 +657,22 @@ const PatientRegistry = () => {
                                             {user && (user.role === 'Operator' || user.role === 'Admin') && (
                                                 <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                                                     <div className="flex justify-end space-x-3">
+                                                        {user.role === 'Operator' && (
+                                                            <button
+                                                                onClick={() => navigate('/assign-tests', { state: { patientId: patient._id || patient.id } })}
+                                                                className="text-emerald-600 hover:text-emerald-900 transition-colors"
+                                                                title="Assign New Tests"
+                                                            >
+                                                                <Microscope size={18} />
+                                                            </button>
+                                                        )}
+                                                        <button
+                                                            onClick={() => handleViewDetail(patient._id || patient.id)}
+                                                            className="text-blue-600 hover:text-blue-900 transition-colors"
+                                                            title="View Patient Details"
+                                                        >
+                                                            <Eye size={18} />
+                                                        </button>
                                                         <button
                                                             onClick={() => handleLocalEdit(patient)}
                                                             className="text-indigo-600 hover:text-indigo-900 transition-colors"
@@ -535,7 +682,7 @@ const PatientRegistry = () => {
                                                         </button>
                                                         <button
                                                             onClick={() => handleDelete(patient._id || patient.id)}
-                                                            className="text-red-600 hover:text-red-900 transition-colors"
+                                                            className="text-red-500 hover:text-red-700 transition-colors"
                                                             title="Delete Patient"
                                                         >
                                                             <Trash2 size={18} />
@@ -595,7 +742,7 @@ const PatientRegistry = () => {
                     </>
                 )}
             </Card>
-        </div>
+        </div >
     );
 };
 
