@@ -1,8 +1,7 @@
-
 import React, { useState, useEffect } from 'react';
 import Card from '../../components/ui/Card';
-import { Stethoscope, Plus, Edit3, Trash2, X } from 'lucide-react';
-import { getDoctors, createDoctor, updateDoctor, deleteDoctor } from '../../api/admin/doctors.api';
+import { Stethoscope, Plus, Edit3, Trash2, X, Eye } from 'lucide-react';
+import { getDoctors, createDoctor, updateDoctor, deleteDoctor, getDoctorById } from '../../api/admin/doctors.api';
 import { useToast } from '../../contexts/ToastContext';
 import { useAuth } from '../../contexts/AuthContext';
 
@@ -14,6 +13,9 @@ const DoctorsSection = () => {
     const [showForm, setShowForm] = useState(false);
     const [editingDoctor, setEditingDoctor] = useState(null);
     const [submitting, setSubmitting] = useState(false);
+    const [showDetailModal, setShowDetailModal] = useState(false);
+    const [selectedDoctorDetail, setSelectedDoctorDetail] = useState(null);
+    const [detailLoading, setDetailLoading] = useState(false);
 
     // Form data
     const [formData, setFormData] = useState({
@@ -50,13 +52,20 @@ const DoctorsSection = () => {
                 page: pagination.page,
                 limit: pagination.limit
             });
-            const doctorsList = response.data || response.doctors || [];
-            setDoctors(doctorsList);
-            setPagination(prev => ({
-                ...prev,
-                total: response.total !== undefined ? response.total : doctorsList.length,
-                totalPages: response.totalPages || Math.ceil(doctorsList.length / prev.limit) || 1
-            }));
+
+            if (response.data) {
+                // Backend returns { doctors: [], pagination: {} }
+                const doctorsList = response.data.doctors || [];
+                setDoctors(doctorsList);
+                setPagination(prev => ({
+                    ...prev,
+                    page: response.data.pagination?.currentPage || 1,
+                    total: response.data.pagination?.totalRecords || 0,
+                    totalPages: response.data.pagination?.totalPages || 1
+                }));
+            } else {
+                setDoctors([]);
+            }
         } catch (error) {
             showToast('Failed to fetch doctors', 'error');
             console.error('Fetch doctors error:', error);
@@ -177,6 +186,23 @@ const DoctorsSection = () => {
                 console.error('Delete doctor error:', error);
             }
         });
+    };
+
+    // Handle view detail
+    const handleViewDetail = async (doctorId) => {
+        try {
+            setDetailLoading(true);
+            setShowDetailModal(true);
+            const response = await getDoctorById(doctorId);
+            if (response.data) {
+                setSelectedDoctorDetail(response.data);
+            }
+        } catch (error) {
+            showToast('Failed to fetch doctor details', 'error');
+            setShowDetailModal(false);
+        } finally {
+            setDetailLoading(false);
+        }
     };
 
     return (
@@ -374,6 +400,92 @@ const DoctorsSection = () => {
                 </div>
             )}
 
+            {/* Doctor Detail Modal */}
+            {showDetailModal && (
+                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+                    <div className="bg-white rounded-xl max-w-lg w-full overflow-hidden shadow-2xl">
+                        <div className="p-6 border-b bg-indigo-600 text-white flex justify-between items-center">
+                            <h3 className="text-xl font-bold flex items-center gap-2">
+                                <Stethoscope size={24} />
+                                Doctor Details
+                            </h3>
+                            <button onClick={() => { setShowDetailModal(false); setSelectedDoctorDetail(null); }} className="hover:bg-indigo-700 p-1 rounded-full transition-colors">
+                                <X size={24} />
+                            </button>
+                        </div>
+
+                        <div className="p-6 space-y-6 max-h-[70vh] overflow-y-auto">
+                            {detailLoading ? (
+                                <div className="py-12 text-center">
+                                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600 mx-auto"></div>
+                                    <p className="text-gray-500 mt-4">Loading doctor profiles...</p>
+                                </div>
+                            ) : selectedDoctorDetail ? (
+                                <div className="space-y-6">
+                                    <div className="flex items-center gap-4">
+                                        <div className="bg-indigo-100 p-4 rounded-full text-indigo-600">
+                                            <Stethoscope size={32} />
+                                        </div>
+                                        <div>
+                                            <h4 className="text-2xl font-bold text-gray-900">{selectedDoctorDetail.name}</h4>
+                                            <p className="text-indigo-600 font-medium">{selectedDoctorDetail.specialization} • {selectedDoctorDetail.degree || 'No Degree specified'}</p>
+                                        </div>
+                                    </div>
+
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        <div className="bg-gray-50 p-4 rounded-xl border border-gray-100">
+                                            <p className="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-1">Contact Info</p>
+                                            <p className="text-gray-900 font-medium mb-1 font-mono">{selectedDoctorDetail.mobile}</p>
+                                            <p className="text-gray-600 text-sm italic">{selectedDoctorDetail.email || 'No email provided'}</p>
+                                        </div>
+                                        <div className="bg-gray-50 p-4 rounded-xl border border-gray-100">
+                                            <p className="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-1">Commission</p>
+                                            <p className="text-2xl font-bold text-green-600">{selectedDoctorDetail.commissionPercentage || 0}%</p>
+                                            <p className="text-gray-500 text-xs mt-1">Standard Referral Commission</p>
+                                        </div>
+                                    </div>
+
+                                    {selectedDoctorDetail.address && (
+                                        <div className="bg-gray-50 p-4 rounded-xl border border-gray-100">
+                                            <p className="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-2">Office Address</p>
+                                            <p className="text-gray-700 leading-relaxed whitespace-pre-wrap">{selectedDoctorDetail.address}</p>
+                                        </div>
+                                    )}
+
+                                    <div className="border-t pt-4 flex flex-col gap-2">
+                                        <div className="flex justify-between text-xs text-gray-400">
+                                            <span>Doctor ID:</span>
+                                            <span className="font-mono">{selectedDoctorDetail._id}</span>
+                                        </div>
+                                        <div className="flex justify-between text-xs text-gray-400">
+                                            <span>Added On:</span>
+                                            <span>{new Date(selectedDoctorDetail.createdAt).toLocaleString()}</span>
+                                        </div>
+                                        <div className="flex justify-between text-xs text-gray-400">
+                                            <span>Last Modified:</span>
+                                            <span>{new Date(selectedDoctorDetail.updatedAt).toLocaleString()}</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            ) : (
+                                <div className="text-center py-8 text-gray-500">
+                                    Information could not be retrieved.
+                                </div>
+                            )}
+                        </div>
+
+                        <div className="p-4 bg-gray-50 border-t flex justify-end">
+                            <button
+                                onClick={() => { setShowDetailModal(false); setSelectedDoctorDetail(null); }}
+                                className="px-6 py-2 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300 transition-colors font-medium"
+                            >
+                                Close Detail
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
             {/* Doctors Table */}
             <Card title="Registered Doctors" icon={Stethoscope} noPadding>
                 {listLoading ? (
@@ -447,6 +559,13 @@ const DoctorsSection = () => {
                                             </td>
                                             <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                                                 <div className="flex justify-end space-x-2">
+                                                    <button
+                                                        onClick={() => handleViewDetail(doctor._id || doctor.id)}
+                                                        className="text-blue-600 hover:text-blue-900"
+                                                        title="View Complete Details"
+                                                    >
+                                                        <Eye size={16} />
+                                                    </button>
                                                     <button
                                                         onClick={() => handleEdit(doctor)}
                                                         className="text-indigo-600 hover:text-indigo-900"

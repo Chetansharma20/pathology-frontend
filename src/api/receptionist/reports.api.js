@@ -1,14 +1,15 @@
+import axiosClient from "../axiosClient";
+
+export const assignTestsToPatient = async (data) => {
+  try {
+    const response = await axiosClient.post("/tests/createtestorder", data);
+    return response;
+  } catch (error) {
+    console.error("Error assigning tests:", error);
+    throw error;
+  }
+};
+
 export const getReports = async () => {
-};
-
-export const getReportById = async (reportId) => {
-};
-
-export const createReport = async (reportData) => {
-};
-
-export const updateReport = async (reportId, reportData) => {
-};
-
-export const deleteReport = async (reportId) => {
+  // ... existing empty functions if any are needed soon
 };

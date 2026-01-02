@@ -75,7 +75,7 @@ const AdminDashboard = () => {
 
     // System overview with real data
     const systemOverview = {
-        totalPatients: patients.length || 0,
+        totalPatients: metrics.totalPatients || 0,
         totalTests: labTests.length || 0,
         totalRevenue: metrics.totalRevenue || 0,
         totalExpenses: metrics.totalExpenses || 0
@@ -145,7 +145,7 @@ const AdminDashboard = () => {
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
                 {[
                     { label: "Today's Revenue", val: formatCurrency(metrics.dailyCollection), color: "text-emerald-700 bg-emerald-50", icon: IndianRupee },
-                    { label: "Total Patients", val: patients.length, color: "text-blue-700 bg-blue-50", icon: Users },
+                    { label: "Total Patients", val: metrics.totalPatients || 0, color: "text-blue-700 bg-blue-50", icon: Users },
                     { label: `${expensePeriod.charAt(0).toUpperCase() + expensePeriod.slice(1)} Expenses`, val: formatCurrency(expensePeriod === 'monthly' ? metrics.monthlyExpenses : metrics.yearlyExpenses), color: "text-orange-700 bg-orange-50", icon: Bell, isExpense: true },
                     { label: "Monthly Revenue", val: metrics.monthlyRevenue ? formatCurrency(metrics.monthlyRevenue) : "₹ 0", color: "text-purple-700 bg-purple-50", icon: TrendingUp },
                 ].map((m, i) => (
@@ -254,7 +254,7 @@ const AdminDashboard = () => {
             </Card>
 
             {/* Quick Actions Section */}
-            {getQuickActions().length > 0 && (
+            {/* {getQuickActions().length > 0 && (
                 <Card title="Quick Actions" icon={Plus}>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         {getQuickActions().map((action, index) => (
@@ -269,7 +269,7 @@ const AdminDashboard = () => {
                         ))}
                     </div>
                 </Card>
-            )}
+            )} */}
 
             {/* Receptionist Management & Recent Expenses (Admin Only) */}
         </div>

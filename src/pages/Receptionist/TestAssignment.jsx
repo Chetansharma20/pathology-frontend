@@ -1,16 +1,28 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Card from '../../components/ui/Card';
-import { UserCheck, Microscope, Trash2 } from 'lucide-react';
+import { UserCheck, Microscope, Trash2, Stethoscope, Loader2 } from 'lucide-react';
 import { useData } from '../../contexts/DataContext';
 import { useToast } from '../../contexts/ToastContext';
+import { assignTestsToPatient } from '../../api/receptionist/reports.api';
+import { useLocation } from 'react-router-dom';
 
 const TestAssignment = () => {
-    const { patients = [], labTests = [], sampleQueue = [], setSampleQueue } = useData();
+    const location = useLocation();
+    const { patients = [], labTests = [], doctors = [] } = useData();
     const { showToast } = useToast();
 
     const [selectedPatient, setSelectedPatient] = useState('');
+    const [selectedDoctor, setSelectedDoctor] = useState('');
     const [assignedTests, setAssignedTests] = useState([]);
+    const [submitting, setSubmitting] = useState(false);
+
+    // Effect to handle navigation state (from shortcut)
+    useEffect(() => {
+        if (location.state && location.state.patientId) {
+            setSelectedPatient(location.state.patientId);
+        }
+    }, [location.state]);
 
     // Use labTests from context, fallback if empty
     const availableTests = labTests.length > 0 ? labTests : [];
@@ -25,9 +37,13 @@ const TestAssignment = () => {
         setAssignedTests(assignedTests.filter(t => t.id !== testId));
     };
 
-    const handleSubmit = () => {
+    const handleSubmit = async () => {
         if (!selectedPatient) {
             showToast('Please select a patient', 'error');
+            return;
+        }
+        if (!selectedDoctor) {
+            showToast('Please select a referring doctor', 'error');
             return;
         }
         if (assignedTests.length === 0) {
@@ -36,52 +52,79 @@ const TestAssignment = () => {
         }
 
         const patient = patients.find(p => (p._id || p.id) === selectedPatient);
-
         if (!patient) {
             showToast('Patient not found', 'error');
             return;
         }
 
-        const sampleId = `S-${Date.now()}`;
+        try {
+            setSubmitting(true);
+            const response = await assignTestsToPatient({
+                patientId: selectedPatient,
+                doctorId: selectedDoctor,
+                testIds: assignedTests.map(t => t.id)
+            });
 
-        const newSample = {
-            id: sampleId,
-            patientId: selectedPatient,
-            patientName: patient.fullName || patient.name,
-            tests: assignedTests,
-            status: 'pending',
-            assignedDate: new Date().toLocaleDateString(),
-            sampleId: sampleId
-        };
-
-        setSampleQueue([...sampleQueue, newSample]);
-        showToast(`Tests assigned to ${patient.fullName || patient.name}`, 'success');
-
-        // Reset form
-        setSelectedPatient('');
-        setAssignedTests([]);
+            if (response.statusCode === 201 || response.status === 201) {
+                showToast(`Tests assigned successfully to ${patient.fullName || patient.name}`, 'success');
+                // Reset form
+                setSelectedPatient('');
+                setSelectedDoctor('');
+                setAssignedTests([]);
+            }
+        } catch (error) {
+            console.error('Test Assignment Error:', error);
+            showToast(error.response?.data?.message || 'Failed to assign tests', 'error');
+        } finally {
+            setSubmitting(false);
+        }
     };
 
     return (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 animate-in fade-in">
             <div className="lg:col-span-2 space-y-6">
-                <Card title="Patient Selection" icon={UserCheck}>
-                    {patients.length === 0 ? (
-                        <div className="text-center py-4 text-gray-500">No patients available. Add a patient first.</div>
-                    ) : (
-                        <select
-                            className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl font-bold text-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none transition-all"
-                            value={selectedPatient}
-                            onChange={e => setSelectedPatient(e.target.value)}
-                        >
-                            <option value="">Choose Patient...</option>
-                            {patients.map(p => (
-                                <option key={p._id || p.id} value={p._id || p.id}>
-                                    {p.fullName || p.name} ({p._id ? p._id.slice(-6) : p.id})
-                                </option>
-                            ))}
-                        </select>
-                    )}
+                <Card title="Patient & Doctor Selection" icon={UserCheck}>
+                    <div className="space-y-4">
+                        <div>
+                            <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-2">Select Patient</label>
+                            {patients.length === 0 ? (
+                                <div className="text-center py-4 text-gray-500 bg-slate-50 rounded-2xl border border-dashed">No patients available.</div>
+                            ) : (
+                                <select
+                                    className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl font-bold text-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none transition-all"
+                                    value={selectedPatient}
+                                    onChange={e => setSelectedPatient(e.target.value)}
+                                >
+                                    <option value="">Choose Patient...</option>
+                                    {patients.map(p => (
+                                        <option key={p._id || p.id} value={p._id || p.id}>
+                                            {p.fullName || p.name} ({p._id ? p._id.slice(-6) : p.id})
+                                        </option>
+                                    ))}
+                                </select>
+                            )}
+                        </div>
+
+                        <div>
+                            <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-2">Referring Doctor</label>
+                            {doctors.length === 0 ? (
+                                <div className="text-center py-4 text-gray-500 bg-slate-50 rounded-2xl border border-dashed">No doctors available.</div>
+                            ) : (
+                                <select
+                                    className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl font-bold text-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none transition-all"
+                                    value={selectedDoctor}
+                                    onChange={e => setSelectedDoctor(e.target.value)}
+                                >
+                                    <option value="">Choose Doctor...</option>
+                                    {doctors.map(d => (
+                                        <option key={d._id || d.id} value={d._id || d.id}>
+                                            {d.name} ({d.specialization})
+                                        </option>
+                                    ))}
+                                </select>
+                            )}
+                        </div>
+                    </div>
                 </Card>
 
                 <Card title="Available Tests" icon={Microscope} noPadding>
@@ -103,8 +146,8 @@ const TestAssignment = () => {
                                             }`}
                                     >
                                         <div className="flex-1 min-w-0">
-                                            <p className="text-[10px] font-black uppercase tracking-widest truncate">{t.name}</p>
-                                            <p className="text-[8px] text-slate-500 font-bold mt-1">{t.category}</p>
+                                            <p className="text-xs font-black uppercase tracking-tight text-indigo-900 truncate">{t.testName}</p>
+                                            <p className="text-[10px] text-slate-500 font-bold mt-0.5">{t.category}</p>
                                         </div>
                                         <p className="font-black text-sm ml-2">₹{t.price}</p>
                                     </button>
@@ -120,7 +163,7 @@ const TestAssignment = () => {
                     {assignedTests.map(test => (
                         <div key={test.id} className="flex justify-between items-center bg-white p-4 rounded-2xl border">
                             <div>
-                                <p className="font-black text-sm uppercase tracking-tight">{test.name}</p>
+                                <p className="font-black text-sm uppercase tracking-tight text-indigo-900">{test.testName}</p>
                                 <p className="text-[10px] text-slate-500 font-bold">{test.category}</p>
                             </div>
                             <div className="flex items-center gap-2">
@@ -153,9 +196,15 @@ const TestAssignment = () => {
                             </div>
                             <button
                                 onClick={handleSubmit}
-                                className="w-full bg-indigo-600 text-white py-3 rounded-xl font-bold"
+                                disabled={submitting}
+                                className="w-full bg-indigo-600 text-white py-4 rounded-2xl font-black uppercase tracking-widest hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                             >
-                                Assign Tests
+                                {submitting ? (
+                                    <>
+                                        <Loader2 className="animate-spin" size={20} />
+                                        Assigning...
+                                    </>
+                                ) : 'Assign Tests Now'}
                             </button>
                         </div>
                     )}

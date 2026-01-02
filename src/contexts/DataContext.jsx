@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useMemo, useCallback } from 'react';
 
 // APIs
-import { getPatients, getTodayPatients } from '../api/receptionist/patient.api';
+import { getPatients, getTodayPatients, getTotalPatientCount } from '../api/receptionist/patient.api';
 import { getDoctors } from '../api/admin/doctors.api';
 import { getExpenses, getExpenseStats } from '../api/admin/expenses.api';
 import { getReports } from '../api/receptionist/reports.api';
@@ -14,8 +14,10 @@ const DataContext = createContext(null);
 export const DataProvider = ({ children }) => {
     // Global Data State
     const [patients, setPatients] = useState([]);
+    const [totalPatients, setTotalPatients] = useState(0);
     const [todayPatients, setTodayPatients] = useState([]);
     const [doctors, setDoctors] = useState([]);
+    const [totalDoctors, setTotalDoctors] = useState(0);
     const [expenses, setExpenses] = useState([]);
     const [labTests, setLabTests] = useState([]);
     const [revenueStats, setRevenueStats] = useState({ totalRevenue: 0, totalCommission: 0, netRevenue: 0 });
@@ -97,10 +99,11 @@ export const DataProvider = ({ children }) => {
                 getTodayPatients(),
                 getRevenueStats(),
                 getRevenueAnalytics(currentYear, currentMonth),
-                getExpenseStats()
+                getExpenseStats(),
+                getTotalPatientCount()
             ]);
 
-            const [pRes, dRes, eRes, rRes, tRes, lRes, tpRes, revStatsRes, analyticsRes, expStatsRes] = results.map(r => r.status === 'fulfilled' ? r.value : null);
+            const [pRes, dRes, eRes, rRes, tRes, lRes, tpRes, revStatsRes, analyticsRes, expStatsRes, totalPatientsRes] = results.map(r => r.status === 'fulfilled' ? r.value : null);
 
             // 1. Patients
             if (pRes && pRes.data) {
@@ -175,6 +178,11 @@ export const DataProvider = ({ children }) => {
                 });
             }
 
+            // 12. Total Patients Count
+            if (totalPatientsRes && totalPatientsRes.data) {
+                setTotalPatients(totalPatientsRes.data.totalPatients || 0);
+            }
+
         } catch (err) {
             console.error("Critical error during initial data fetch", err);
         } finally {
@@ -210,7 +218,7 @@ export const DataProvider = ({ children }) => {
             expenses, setExpenses,
             labTests, setLabTests,
             labConfig, updateLabSettings,
-            metrics,
+            metrics: { ...metrics, totalPatients }, // Include totalPatients in metrics
             loading,
             refreshData: fetchData
         }}>

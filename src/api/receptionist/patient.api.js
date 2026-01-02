@@ -60,3 +60,37 @@ export const getTodayPatients = async () => {
     throw error;
   }
 };
+
+export const getPatientById = async (id) => {
+  try {
+    const response = await axiosClient.get(`/patient/getpatientbyid/${id}`);
+    return response;
+  } catch (error) {
+    console.error("Error fetching patient details:", error);
+    throw error;
+  }
+
+
+};
+
+export const getTotalPatientCount = async () => {
+  try {
+    const response = await axiosClient.get("/patient/count");
+    return response;
+  } catch (error) {
+    console.error("Error fetching total patient count:", error);
+    throw error;
+  }
+};
+
+export const getDailyPatients = async (year, month) => {
+  try {
+    const response = await axiosClient.get("/patient/daily", {
+      params: { year, month }
+    });
+    return response;
+  } catch (error) {
+    console.error("Error fetching daily patients:", error);
+    throw error;
+  }
+};
