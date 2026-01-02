@@ -63,7 +63,7 @@ const AdminDashboard = () => {
         todayPatients = [],
         labTests = [],
         refreshTodayPatients,
-        metrics = { dailyCollection: 0, totalExpenses: 0, monthlyRevenue: 0, totalRevenue: 0 },
+        metrics = { dailyCollection: 0, monthlyExpenses: 0, totalExpenses: 0, monthlyRevenue: 0, totalRevenue: 0 },
         loading: contextLoading
     } = useData();
 
@@ -81,40 +81,9 @@ const AdminDashboard = () => {
         totalExpenses: metrics.totalExpenses || 0
     };
 
-    // Mock recent data
-    const recentExpenses = [
-        {
-            _id: 'E-001',
-            title: 'Lab Reagents',
-            amount: 2500,
-            category: 'LAB_MATERIALS',
-            date: new Date().toISOString().split('T')[0]
-        },
-        {
-            _id: 'E-002',
-            title: 'Staff Salary',
-            amount: 15000,
-            category: 'SALARY',
-            date: new Date().toISOString().split('T')[0]
-        }
-    ];
 
-    const receptionists = [
-        {
-            _id: 'R-001',
-            name: 'Priya Sharma',
-            mobile: '9876543210',
-            status: 'Active',
-            createdAt: new Date().toISOString()
-        },
-        {
-            _id: 'R-002',
-            name: 'Rajesh Kumar',
-            mobile: '9876543211',
-            status: 'Active',
-            createdAt: new Date().toISOString()
-        }
-    ];
+
+
 
     // Quick Actions based on user role
     const getQuickActions = () => {
@@ -168,6 +137,8 @@ const AdminDashboard = () => {
         return `₹${(amount || 0).toLocaleString()}`;
     };
 
+    const [expensePeriod, setExpensePeriod] = useState('monthly');
+
     return (
         <div className="space-y-8">
             {/* Daily Metrics */}
@@ -175,7 +146,7 @@ const AdminDashboard = () => {
                 {[
                     { label: "Today's Revenue", val: formatCurrency(metrics.dailyCollection), color: "text-emerald-700 bg-emerald-50", icon: IndianRupee },
                     { label: "Total Patients", val: patients.length, color: "text-blue-700 bg-blue-50", icon: Users },
-                    { label: "Monthly Expenses", val: formatCurrency(metrics.totalExpenses), color: "text-orange-700 bg-orange-50", icon: Bell },
+                    { label: `${expensePeriod.charAt(0).toUpperCase() + expensePeriod.slice(1)} Expenses`, val: formatCurrency(expensePeriod === 'monthly' ? metrics.monthlyExpenses : metrics.yearlyExpenses), color: "text-orange-700 bg-orange-50", icon: Bell, isExpense: true },
                     { label: "Monthly Revenue", val: metrics.monthlyRevenue ? formatCurrency(metrics.monthlyRevenue) : "₹ 0", color: "text-purple-700 bg-purple-50", icon: TrendingUp },
                 ].map((m, i) => (
                     <div key={i} className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm hover:shadow-md transition-shadow h-32 flex flex-col justify-between">
@@ -183,7 +154,18 @@ const AdminDashboard = () => {
                             <div className={`p-2.5 rounded-lg ${m.color}`}>
                                 <m.icon size={20} />
                             </div>
-                            <span className="text-xs font-medium text-gray-500 uppercase tracking-wide">{m.label.split(' ')[0]}</span>
+                            {m.isExpense ? (
+                                <select
+                                    value={expensePeriod}
+                                    onChange={(e) => setExpensePeriod(e.target.value)}
+                                    className="text-[10px] font-bold text-gray-500 uppercase tracking-wider bg-transparent border-none outline-none cursor-pointer hover:text-indigo-600 transition-colors"
+                                >
+                                    <option value="monthly">Monthly</option>
+                                    <option value="yearly">Yearly</option>
+                                </select>
+                            ) : (
+                                <span className="text-xs font-medium text-gray-500 uppercase tracking-wide">{m.label.split(' ')[0]}</span>
+                            )}
                         </div>
                         <div className="space-y-1">
                             <p className="text-2xl font-bold text-gray-900 leading-none">{m.val}</p>

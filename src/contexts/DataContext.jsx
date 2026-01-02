@@ -3,11 +3,11 @@ import React, { createContext, useContext, useState, useEffect, useMemo, useCall
 // APIs
 import { getPatients, getTodayPatients } from '../api/receptionist/patient.api';
 import { getDoctors } from '../api/admin/doctors.api';
-import { getExpenses } from '../api/admin/expenses.api';
+import { getExpenses, getExpenseStats } from '../api/admin/expenses.api';
 import { getReports } from '../api/receptionist/reports.api';
 import { getLabTests } from '../api/admin/labTest.api';
 import { getLabDetails, updateLabDetails } from '../api/admin/lab.api';
-import { getRevenueStats, getMonthlyRevenue, getDailyRevenue } from '../api/admin/revenue.api';
+import { getRevenueStats, getRevenueAnalytics } from '../api/admin/revenue.api';
 
 const DataContext = createContext(null);
 
@@ -21,6 +21,7 @@ export const DataProvider = ({ children }) => {
     const [revenueStats, setRevenueStats] = useState({ totalRevenue: 0, totalCommission: 0, netRevenue: 0 });
     const [monthlyRevenue, setMonthlyRevenue] = useState([]);
     const [todayRevenue, setTodayRevenue] = useState(0);
+    const [expenseStats, setExpenseStats] = useState({ monthlyTotal: 0, yearlyTotal: 0, allTimeTotal: 0 });
 
     // Lab Configuration with default fallback
     const [labConfig, setLabConfig] = useState({
@@ -48,8 +49,12 @@ export const DataProvider = ({ children }) => {
         return {
             // Today's revenue - from getDailyRevenue API
             dailyCollection: todayRevenue,
-            // Total expenses - comes from expenses data
-            totalExpenses: Array.isArray(expenses) ? expenses.reduce((acc, e) => acc + (Number(e.amount) || 0), 0) : 0,
+            // Monthly expenses - from backend expense stats
+            monthlyExpenses: expenseStats.monthlyTotal || 0,
+            // Total expenses - from backend expense stats (all-time)
+            totalExpenses: expenseStats.allTimeTotal || 0,
+            // Yearly expenses - optional but available
+            yearlyExpenses: expenseStats.yearlyTotal || 0,
             // Current month revenue - from monthly breakdown API
             monthlyRevenue: calculatedMonthlyRevenue,
             // All-time total revenue - from revenue stats API
@@ -91,11 +96,11 @@ export const DataProvider = ({ children }) => {
                 getLabDetails(),
                 getTodayPatients(),
                 getRevenueStats(),
-                getMonthlyRevenue(currentYear),
-                getDailyRevenue(currentYear, currentMonth)
+                getRevenueAnalytics(currentYear, currentMonth),
+                getExpenseStats()
             ]);
 
-            const [pRes, dRes, eRes, rRes, tRes, lRes, tpRes, revStatsRes, revMonthlyRes, revDailyRes] = results.map(r => r.status === 'fulfilled' ? r.value : null);
+            const [pRes, dRes, eRes, rRes, tRes, lRes, tpRes, revStatsRes, analyticsRes, expStatsRes] = results.map(r => r.status === 'fulfilled' ? r.value : null);
 
             // 1. Patients
             if (pRes && pRes.data) {
@@ -144,18 +149,30 @@ export const DataProvider = ({ children }) => {
                 setRevenueStats(revStatsRes.data.stats);
             }
 
-            // 9. Monthly Revenue
-            if (revMonthlyRes && revMonthlyRes.data) {
-                setMonthlyRevenue(Array.isArray(revMonthlyRes.data) ? revMonthlyRes.data : []);
+            // 9 & 10. Unified Revenue Analytics
+            if (analyticsRes && analyticsRes.data) {
+                // data = { yearlyTotal: {}, monthly: [], daily: [] }
+                const { monthly, daily } = analyticsRes.data;
+
+                // Set Monthly Breakdown
+                setMonthlyRevenue(Array.isArray(monthly) ? monthly : []);
+
+                // Set Today's Revenue (Daily)
+                const dailyData = Array.isArray(daily) ? daily : [];
+                const today = new Date().getDate();
+                const todayData = dailyData.find(d => d.day === today); // Note: backend now returns 'day', not '_id.day'
+                setTodayRevenue(todayData ? todayData.totalRevenue : 0);
             }
 
-            // 10. Today's Revenue
-            if (revDailyRes && revDailyRes.data) {
-                const dailyData = Array.isArray(revDailyRes.data) ? revDailyRes.data : [];
-                // Find today's data from the daily breakdown
-                const today = new Date().getDate();
-                const todayData = dailyData.find(d => d._id?.day === today);
-                setTodayRevenue(todayData ? todayData.totalRevenue : 0);
+            // 11. Expense Stats
+            if (expStatsRes && expStatsRes.data) {
+                // If backend returns { monthlyTotal, yearlyTotal } directly or nested
+                const stats = expStatsRes.data;
+                setExpenseStats({
+                    monthlyTotal: stats.monthlyTotal || 0,
+                    yearlyTotal: stats.yearlyTotal || 0,
+                    allTimeTotal: stats.allTimeTotal || 0
+                });
             }
 
         } catch (err) {

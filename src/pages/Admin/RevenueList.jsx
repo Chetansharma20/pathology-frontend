@@ -1,8 +1,110 @@
 import React, { useState, useEffect } from 'react';
 import Card from '../../components/ui/Card';
-import { DollarSign, Filter, Calendar, TrendingUp, Eye } from 'lucide-react';
+import { DollarSign, Filter, Calendar, TrendingUp, Eye, X, FileText, User, CreditCard } from 'lucide-react';
 import { getRevenueStats } from '../../api/admin/revenue.api';
+import { getBillById } from '../../api/admin/billing.api';
 import { useToast } from '../../contexts/ToastContext';
+
+const BillDetailModal = ({ bill, onClose }) => {
+    if (!bill) return null;
+
+    return (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+            <div className="bg-white rounded-xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto animate-in fade-in zoom-in-95 duration-200">
+                <div className="p-6 border-b border-gray-100 flex justify-between items-center sticky top-0 bg-white z-10">
+                    <div>
+                        <h3 className="text-xl font-bold text-gray-900 flex items-center gap-2">
+                            <FileText className="text-indigo-600" size={24} />
+                            Bill Details
+                        </h3>
+                        <p className="text-sm text-gray-500 mt-1">Invoice #{bill.billNumber}</p>
+                    </div>
+                    <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-lg transition-colors">
+                        <X size={20} className="text-gray-500" />
+                    </button>
+                </div>
+
+                <div className="p-6 space-y-6">
+                    {/* Patient & Doctor Info */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 p-4 bg-gray-50 rounded-lg border border-gray-100">
+                        <div className="space-y-3">
+                            <div className="flex items-center gap-2 text-gray-900 font-semibold">
+                                <User size={18} className="text-blue-600" />
+                                Patient Information
+                            </div>
+                            <div className="text-sm space-y-1 text-gray-600 pl-6">
+                                <p><span className="font-medium text-gray-700">Name:</span> {bill.patientId?.fullName || "N/A"}</p>
+                                <p><span className="font-medium text-gray-700">Phone:</span> {bill.patientId?.phone || "N/A"}</p>
+                                <p><span className="font-medium text-gray-700">Age/Gender:</span> {bill.patientId?.age} / {bill.patientId?.gender}</p>
+                            </div>
+                        </div>
+                        <div className="space-y-3">
+                            <div className="flex items-center gap-2 text-gray-900 font-semibold">
+                                <User size={18} className="text-purple-600" />
+                                Doctor Information
+                            </div>
+                            <div className="text-sm space-y-1 text-gray-600 pl-6">
+                                <p><span className="font-medium text-gray-700">Ref. By:</span> {bill.testOrderId?.doctor?.name || "Self"}</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Test Items */}
+                    <div>
+                        <h4 className="font-semibold text-gray-900 mb-3">Test Items</h4>
+                        <div className="border rounded-lg overflow-hidden">
+                            <table className="w-full text-sm">
+                                <thead className="bg-gray-50 border-b">
+                                    <tr>
+                                        <th className="px-4 py-3 text-left font-medium text-gray-500">Test Name</th>
+                                        <th className="px-4 py-3 text-right font-medium text-gray-500">Price</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-gray-100">
+                                    {bill.items?.map((item, idx) => (
+                                        <tr key={idx}>
+                                            <td className="px-4 py-3 text-gray-900">{item.testName || item.name}</td>
+                                            <td className="px-4 py-3 text-right text-gray-600">₹{item.price}</td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                                <tfoot className="bg-gray-50 font-semibold">
+                                    <tr>
+                                        <td className="px-4 py-3 text-gray-900">Total Amount</td>
+                                        <td className="px-4 py-3 text-right text-indigo-600">₹{bill.totalAmount}</td>
+                                    </tr>
+                                </tfoot>
+                            </table>
+                        </div>
+                    </div>
+
+                    {/* Payment Status */}
+                    <div className="flex items-center justify-between p-4 border border-green-100 bg-green-50 rounded-lg">
+                        <div className="flex items-center gap-3">
+                            <CreditCard className="text-green-600" size={24} />
+                            <div>
+                                <p className="font-semibold text-green-900">Payment Status</p>
+                                <p className="text-sm text-green-700 capitalize">
+                                    {bill.status || "Paid"}
+                                    {bill.paymentId?.paymentMethod && ` via ${bill.paymentId.paymentMethod}`}
+                                </p>
+                                <p className="text-xs text-green-600 mt-0.5">
+                                    {new Date(bill.createdAt).toLocaleDateString()} at {new Date(bill.createdAt).toLocaleTimeString()}
+                                </p>
+                            </div>
+                        </div>
+                        <div className="text-right">
+                            <span className="text-2xl font-bold text-green-700">₹{bill.totalAmount}</span>
+                            {bill.paymentId?.transactionId && (
+                                <p className="text-xs text-green-600 mt-1">Txn: {bill.paymentId.transactionId}</p>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+};
 
 const RevenueList = () => {
     const { showToast } = useToast();
@@ -24,6 +126,10 @@ const RevenueList = () => {
         startDate: '',
         endDate: ''
     });
+
+    // Bill detail modal state
+    const [selectedBill, setSelectedBill] = useState(null);
+    const [loadingBill, setLoadingBill] = useState(false);
 
     // Fetch revenue list
     const fetchRevenues = async () => {
@@ -94,6 +200,21 @@ const RevenueList = () => {
     const clearFilters = () => {
         setFilters({ startDate: '', endDate: '' });
         setPagination(prev => ({ ...prev, currentPage: 1 }));
+    };
+
+    const handleViewBill = async (billId) => {
+        setLoadingBill(true);
+        try {
+            const response = await getBillById(billId);
+            if (response && response.data) {
+                setSelectedBill(response.data);
+            }
+        } catch (error) {
+            showToast("Failed to fetch bill details", "error");
+            console.error(error);
+        } finally {
+            setLoadingBill(false);
+        }
     };
 
     return (
@@ -239,7 +360,11 @@ const RevenueList = () => {
                                 </thead>
                                 <tbody className="bg-white divide-y divide-gray-200">
                                     {revenues.map((revenue) => (
-                                        <tr key={revenue._id} className="hover:bg-gray-50">
+                                        <tr
+                                            key={revenue._id}
+                                            onClick={() => revenue.billId?._id && handleViewBill(revenue.billId._id)}
+                                            className="hover:bg-gray-50 cursor-pointer transition-colors"
+                                        >
                                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                                                 <div>{formatDate(revenue.createdAt)}</div>
                                                 <div className="text-xs text-gray-500">{formatTime(revenue.createdAt)}</div>
@@ -287,8 +412,8 @@ const RevenueList = () => {
                                         key={pageNum}
                                         onClick={() => handlePageChange(pageNum)}
                                         className={`px-3 py-1 text-sm border rounded-md ${pagination.currentPage === pageNum
-                                                ? 'bg-indigo-600 text-white border-indigo-600'
-                                                : 'border-gray-300 hover:bg-gray-50'
+                                            ? 'bg-indigo-600 text-white border-indigo-600'
+                                            : 'border-gray-300 hover:bg-gray-50'
                                             }`}
                                     >
                                         {pageNum}
@@ -306,6 +431,12 @@ const RevenueList = () => {
                     </div>
                 )}
             </Card>
+
+            {/* Bill Detail Modal */}
+            <BillDetailModal
+                bill={selectedBill}
+                onClose={() => setSelectedBill(null)}
+            />
         </div>
     );
 };

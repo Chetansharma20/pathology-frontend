@@ -73,11 +73,13 @@ const ExpensesSection = () => {
             };
 
             const response = await getExpenses(params);
-            setExpenses(response.data || response.expenses || []);
+            // Handle nested data structure: response.data contains { data: [], pagination: {} }
+            const responseData = response.data || response;
+            setExpenses(responseData.data || responseData.expenses || []);
             setPagination(prev => ({
                 ...prev,
-                total: response.pagination?.totalRecords || response.total || 0,
-                totalPages: response.pagination?.totalPages || response.totalPages || 0
+                total: responseData.pagination?.totalRecords || responseData.total || 0,
+                totalPages: responseData.pagination?.totalPages || responseData.totalPages || 0
             }));
         } catch (error) {
             showToast('Failed to fetch expenses', 'error');

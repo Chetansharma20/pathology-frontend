@@ -5,6 +5,7 @@ import axiosClient from '../axiosClient';
 export const getRevenueStats = async (params = {}) => {
     try {
         const response = await axiosClient.get('/revenue/stats', { params });
+        console.log(response);
         return response;
     } catch (error) {
         console.error('Error fetching revenue stats:', error);
@@ -12,22 +13,12 @@ export const getRevenueStats = async (params = {}) => {
     }
 };
 
-export const getMonthlyRevenue = async (year) => {
+export const getRevenueAnalytics = async (year, month) => {
     try {
-        const response = await axiosClient.get('/revenue/monthly', { params: { year } });
-        return response;
+        const response = await axiosClient.get('/revenue/analytics', { params: { year, month } });
+        return response; // Expected: { yearlyTotal: {}, monthly: [], daily: [] }
     } catch (error) {
-        console.error('Error fetching monthly revenue:', error);
-        throw error;
-    }
-};
-
-export const getDailyRevenue = async (year, month) => {
-    try {
-        const response = await axiosClient.get('/revenue/daily', { params: { year, month } });
-        return response;
-    } catch (error) {
-        console.error('Error fetching daily revenue:', error);
+        console.error('Error fetching revenue analytics:', error);
         throw error;
     }
 };

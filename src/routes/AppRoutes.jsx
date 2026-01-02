@@ -15,6 +15,7 @@ import Tests from '../pages/Admin/Tests';
 import Doctors from '../pages/Admin/Doctors';
 import Settings from '../pages/Admin/Settings';
 import RevenueList from '../pages/Admin/RevenueList';
+import Discounts from '../pages/Admin/Discounts';
 
 // Receptionist Pages
 import PatientRegistry from '../pages/Receptionist/PatientRegistry';
@@ -92,6 +93,11 @@ const AppRoutes = () => {
             <Route path="/revenue" element={
                 <ProtectedRoute allowedRoles={['Admin']}>
                     <PageWithLayout component={RevenueList} />
+                </ProtectedRoute>
+            } />
+            <Route path="/discounts" element={
+                <ProtectedRoute allowedRoles={['Admin']}>
+                    <PageWithLayout component={Discounts} />
                 </ProtectedRoute>
             } />
             <Route path="/settings" element={
