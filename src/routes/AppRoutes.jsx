@@ -19,9 +19,13 @@ import Discounts from '../pages/Admin/Discounts';
 
 // Receptionist Pages
 import PatientRegistry from '../pages/Receptionist/PatientRegistry';
+import AddPatient from '../pages/Receptionist/AddPatient';
+import PatientProfile from '../pages/Receptionist/PatientProfile';
+import ReceptionistDashboard from '../pages/Receptionist/ReceptionistDashboard';
 import Billing from '../pages/Receptionist/Billing';
 import Reports from '../pages/Receptionist/Reports';
 import TestAssignment from '../pages/Receptionist/TestAssignment';
+import PendingOrders from '../pages/Receptionist/PendingOrders';
 
 import NotFound from '../components/NotFound';
 import ReportModal from '../components/ReportModal';
@@ -43,10 +47,6 @@ const MainLayout = ({ children }) => {
                     {children}
                 </div>
             </main>
-            {/* Global Modals could go here if managed by context, 
-               but currently ReportModal is local state in App.js which we need to fix.
-               For now, we'll omit it until we fix the modal state. 
-           */}
         </div>
     );
 };
@@ -61,12 +61,24 @@ const PageWithLayout = ({ component: Component, ...props }) => {
 };
 
 const AppRoutes = () => {
-    const { user } = useAuth();
+    const { user, loading } = useAuth();
+
+    if (loading) {
+        return (
+            <div className="min-h-screen flex items-center justify-center bg-slate-50">
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>
+            </div>
+        );
+    }
 
     return (
         <Routes>
             <Route path="/login" element={
-                !user ? <Login /> : <Navigate to={user.role === 'Admin' ? '/dashboard' : '/patients'} replace />
+                user ? (
+                    <Navigate to={user.role === 'Admin' ? '/dashboard' : '/receptionist-dashboard'} replace />
+                ) : (
+                    <Login />
+                )
             } />
 
             {/* Admin Routes */}
@@ -106,17 +118,29 @@ const AppRoutes = () => {
                 </ProtectedRoute>
             } />
 
+
             {/* Receptionist Routes */}
+            <Route path="/receptionist-dashboard" element={
+                <ProtectedRoute allowedRoles={['Admin', 'Operator']}>
+                    <PageWithLayout component={ReceptionistDashboard} />
+                </ProtectedRoute>
+            } />
             <Route path="/patients" element={
                 <ProtectedRoute allowedRoles={['Admin', 'Operator']}>
                     <PageWithLayout component={PatientRegistry} />
                 </ProtectedRoute>
             } />
-            <Route path="/assign-tests" element={
-                <ProtectedRoute allowedRoles={['Operator']}>
-                    <PageWithLayout component={TestAssignment} />
+            <Route path="/patients/add" element={
+                <ProtectedRoute allowedRoles={['Admin', 'Operator']}>
+                    <PageWithLayout component={AddPatient} />
                 </ProtectedRoute>
             } />
+            <Route path="/patient/:id" element={
+                <ProtectedRoute allowedRoles={['Admin', 'Operator']}>
+                    <PageWithLayout component={PatientProfile} />
+                </ProtectedRoute>
+            } />
+
             <Route path="/billing" element={
                 <ProtectedRoute allowedRoles={['Operator']}>
                     <PageWithLayout component={Billing} />
@@ -125,6 +149,16 @@ const AppRoutes = () => {
             <Route path="/reports" element={
                 <ProtectedRoute allowedRoles={['Operator']}>
                     <PageWithLayout component={Reports} />
+                </ProtectedRoute>
+            } />
+            <Route path="/pending-orders" element={
+                <ProtectedRoute allowedRoles={['Operator']}>
+                    <PageWithLayout component={PendingOrders} />
+                </ProtectedRoute>
+            } />
+            <Route path="/assign-tests" element={
+                <ProtectedRoute allowedRoles={['Operator']}>
+                    <PageWithLayout component={TestAssignment} />
                 </ProtectedRoute>
             } />
 

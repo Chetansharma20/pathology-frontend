@@ -86,3 +86,4 @@ export const toggleReceptionistStatus = async (receptionistId, status) => {
     throw error;
   }
 };
+

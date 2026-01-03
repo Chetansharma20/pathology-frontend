@@ -1,17 +1,13 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
 import Card from '../../components/ui/Card';
-import { Database, Edit3, UserPlus, Filter, Microscope, Upload, FileText } from 'lucide-react';
-import { getPatients, updatePatient } from '../../api/receptionist/patient.api';
+import { Database, Edit3, UserPlus, Filter } from 'lucide-react';
+import { getPatients, createPatient, updatePatient } from '../../api/receptionist/patient.api';
 import { useAuth } from '../../contexts/AuthContext';
 import { useToast } from '../../contexts/ToastContext';
-import AssignTestModal from './components/AssignTestModal';
-import AddHistoricalReportModal from './components/AddHistoricalReportModal';
 
 const PatientRegistry = () => {
     const { user } = useAuth();
     const { showToast } = useToast();
-    const navigate = useNavigate();
 
     // List state
     const [patients, setPatients] = useState([]);
@@ -30,10 +26,18 @@ const PatientRegistry = () => {
         reportStatus: ''
     });
 
-    // Edit Form State
-    const [editingPatient, setEditingPatient] = useState(null);
-    const [assignTestPatient, setAssignTestPatient] = useState(null);
-    const [uploadReportPatient, setUploadReportPatient] = useState(null);
+    // Form State (Moved locally)
+    const [patientForm, setPatientForm] = useState({
+        id: null,
+        name: '',
+        phone: '',
+        age: '',
+        gender: 'Male',
+        address: '',
+        email: '',
+        dateOfBirth: ''
+    });
+
     const [submitting, setSubmitting] = useState(false);
 
     // Fetch patients
@@ -48,19 +52,22 @@ const PatientRegistry = () => {
                 )
             };
 
+            // In a real app, strict mode might double invoke, check api logs if needed
             const response = await getPatients(params);
-            const patientsArray = Array.isArray(response.data) ? response.data :
-                Array.isArray(response.patients) ? response.patients : [];
-            setPatients(patientsArray);
-            setPagination(prev => ({
-                ...prev,
-                total: response.total || 0,
-                totalPages: response.totalPages || 0
-            }));
+
+            if (response.data) {
+                setPatients(response.data.patients || []);
+                setPagination(prev => ({
+                    ...prev,
+                    total: response.data.pagination?.totalRecords || 0,
+                    totalPages: response.data.pagination?.totalPages || 0
+                }));
+            } else {
+                setPatients([]);
+            }
         } catch (error) {
             showToast('Failed to fetch patients', 'error');
             console.error('Fetch patients error:', error);
-            setPatients([]);
         } finally {
             setLoading(false);
         }
@@ -70,23 +77,54 @@ const PatientRegistry = () => {
         fetchPatients();
     }, [pagination.page, filters]);
 
-    // Handle Edit Submit
-    const handleEditSubmit = async (e) => {
+    // Handle Form Submit
+    const handlePatientCRUD = async (e) => {
         e.preventDefault();
-        if (!editingPatient) return;
+
+        // Basic validation
+        if (!patientForm.name || !patientForm.phone || !patientForm.age || !patientForm.gender || !patientForm.address) {
+            showToast("Please fill all required fields", "warning");
+            return;
+        }
 
         setSubmitting(true);
         try {
-            await updatePatient(editingPatient._id, editingPatient);
-            showToast("Patient updated successfully", "success");
-            setEditingPatient(null);
+            if (patientForm.id) {
+                // Update
+                await updatePatient(patientForm.id, patientForm);
+                showToast("Patient updated successfully", "success");
+            } else {
+                // Create
+                await createPatient(patientForm);
+                showToast("Patient registered successfully", "success");
+            }
+
+            // Reset and Refresh
+            setPatientForm({ id: null, name: '', phone: '', age: '', gender: 'Male', address: '', email: '', dateOfBirth: '' });
             fetchPatients();
+
         } catch (err) {
-            console.error("Error updating patient:", err);
-            showToast(err.message || "Failed to update patient", "error");
+            console.error("CRUD Error", err);
+            showToast(err.message || "Failed to save patient", "error");
         } finally {
             setSubmitting(false);
         }
+    };
+
+    // Handle local form operations (populate form for edit)
+    const handleLocalEdit = (patient) => {
+        setPatientForm({
+            id: patient._id || patient.id,
+            name: patient.fullName || patient.name || '',
+            phone: patient.phone || '',
+            age: patient.age || '',
+            gender: patient.gender || 'Male',
+            address: patient.address?.street ? `${patient.address.street}, ${patient.address.city || ''}` : patient.address || '',
+            email: patient.email || '',
+            dateOfBirth: patient.dateOfBirth ? new Date(patient.dateOfBirth).toISOString().split('T')[0] : ''
+        });
+        // Scroll to top to see form
+        window.scrollTo({ top: 0, behavior: 'smooth' });
     };
 
     // Format date
@@ -100,95 +138,182 @@ const PatientRegistry = () => {
             {/* Header */}
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                 <div>
-                    <h2 className="text-2xl font-black" style={{ color: 'var(--text-primary)' }}>
+                    <h2
+                        className="text-2xl font-black"
+                        style={{ color: 'var(--text-primary)' }}
+                    >
                         Patient Registry
                     </h2>
-                    <p className="mt-1" style={{ color: 'var(--text-secondary)' }}>
+                    <p
+                        className="mt-1"
+                        style={{ color: 'var(--text-secondary)' }}
+                    >
                         Manage patient records and information
                     </p>
                 </div>
-                <div className="flex items-center gap-4">
-                    <div className="rounded-lg px-4 py-2" style={{ backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border-primary)' }}>
-                        <div className="text-sm font-medium" style={{ color: 'var(--accent-indigo)' }}>
-                            Total Patients
-                        </div>
-                        <div className="text-lg font-bold" style={{ color: 'var(--accent-indigo)' }}>
-                            {pagination.total}
-                        </div>
+                <div
+                    className="rounded-lg px-4 py-2"
+                    style={{
+                        backgroundColor: 'var(--bg-secondary)',
+                        border: '1px solid var(--border-primary)'
+                    }}
+                >
+                    <div
+                        className="text-sm font-medium"
+                        style={{ color: 'var(--accent-indigo)' }}
+                    >
+                        Total Patients
                     </div>
-                    {user && (user.role === 'Operator' || user.role === 'Admin') && (
-                        <button
-                            onClick={() => navigate('/patients/add')}
-                            className="flex items-center gap-2 px-4 py-3 rounded-lg font-medium text-sm transition-colors"
-                            style={{ backgroundColor: 'var(--accent-indigo)', color: 'var(--text-inverse)' }}
-                        >
-                            <UserPlus size={18} />
-                            Add Patient
-                        </button>
-                    )}
+                    <div
+                        className="text-lg font-bold"
+                        style={{ color: 'var(--accent-indigo)' }}
+                    >
+                        {pagination.total}
+                    </div>
                 </div>
             </div>
 
-            {/* Edit Patient Form */}
-            {editingPatient && (
-                <Card title="Edit Patient" icon={Edit3}>
-                    <form className="space-y-4" onSubmit={handleEditSubmit}>
+            {/* Add Patient Form (Receptionist Only) */}
+            {user && (user.role === 'Operator' || user.role === 'Admin') && (
+                <Card title={patientForm.id ? "Edit Patient" : "Add New Patient"} icon={patientForm.id ? Edit3 : UserPlus}>
+                    <form className="space-y-4" onSubmit={handlePatientCRUD}>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <input
                                 placeholder="Full Name"
-                                value={editingPatient.fullName || ''}
-                                onChange={e => setEditingPatient({ ...editingPatient, fullName: e.target.value })}
+                                value={patientForm.name}
+                                onChange={e => setPatientForm({ ...patientForm, name: e.target.value })}
                                 className="w-full px-4 py-3 rounded-2xl outline-none transition-all"
-                                style={{ backgroundColor: 'var(--input-bg)', border: '1px solid var(--input-border)', color: 'var(--input-text)' }}
+                                style={{
+                                    backgroundColor: 'var(--input-bg)',
+                                    border: '1px solid var(--input-border)',
+                                    color: 'var(--input-text)'
+                                }}
                                 required
                             />
                             <input
                                 placeholder="Phone Number"
-                                value={editingPatient.phone || ''}
-                                onChange={e => setEditingPatient({ ...editingPatient, phone: e.target.value })}
+                                value={patientForm.phone}
+                                onChange={e => setPatientForm({ ...patientForm, phone: e.target.value })}
                                 className="w-full px-4 py-3 rounded-2xl outline-none transition-all"
-                                style={{ backgroundColor: 'var(--input-bg)', border: '1px solid var(--input-border)', color: 'var(--input-text)' }}
+                                style={{
+                                    backgroundColor: 'var(--input-bg)',
+                                    border: '1px solid var(--input-border)',
+                                    color: 'var(--input-text)'
+                                }}
                                 required
                             />
                         </div>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+
+                        <input
+                            placeholder="Email (Optional)"
+                            type="email"
+                            value={patientForm.email || ''}
+                            onChange={e => setPatientForm({ ...patientForm, email: e.target.value })}
+                            className="w-full px-4 py-3 rounded-2xl outline-none transition-all"
+                            style={{
+                                backgroundColor: 'var(--input-bg)',
+                                border: '1px solid var(--input-border)',
+                                color: 'var(--input-text)'
+                            }}
+                        />
+
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                             <input
                                 placeholder="Age"
                                 type="number"
-                                value={editingPatient.age || ''}
-                                onChange={e => setEditingPatient({ ...editingPatient, age: e.target.value })}
+                                min="0"
+                                step="1"
+                                value={patientForm.age}
+                                onChange={e => {
+                                    const value = e.target.value;
+                                    if (value === '' || /^\d+$/.test(value)) {
+                                        setPatientForm({ ...patientForm, age: value });
+                                    }
+                                }}
+                                onBlur={e => {
+                                    const value = parseInt(e.target.value) || 0;
+                                    setPatientForm({ ...patientForm, age: Math.max(0, value) });
+                                }}
                                 className="w-full px-4 py-3 rounded-2xl outline-none transition-all"
-                                style={{ backgroundColor: 'var(--input-bg)', border: '1px solid var(--input-border)', color: 'var(--input-text)' }}
+                                style={{
+                                    backgroundColor: 'var(--input-bg)',
+                                    border: '1px solid var(--input-border)',
+                                    color: 'var(--input-text)'
+                                }}
+                                required
                             />
                             <select
-                                value={editingPatient.gender || ''}
-                                onChange={e => setEditingPatient({ ...editingPatient, gender: e.target.value })}
+                                value={patientForm.gender}
+                                onChange={e => setPatientForm({ ...patientForm, gender: e.target.value })}
                                 className="px-4 py-3 rounded-2xl font-medium text-sm outline-none transition-all"
-                                style={{ backgroundColor: 'var(--input-bg)', border: '1px solid var(--input-border)', color: 'var(--input-text)' }}
+                                style={{
+                                    backgroundColor: 'var(--input-bg)',
+                                    border: '1px solid var(--input-border)',
+                                    color: 'var(--input-text)'
+                                }}
+                                required
                             >
                                 <option value="">Select Gender</option>
                                 <option value="Male">Male</option>
                                 <option value="Female">Female</option>
                                 <option value="Other">Other</option>
                             </select>
+                            <input
+                                type="date"
+                                value={patientForm.dateOfBirth || ''}
+                                onChange={e => setPatientForm({ ...patientForm, dateOfBirth: e.target.value })}
+                                className="w-full px-4 py-3 rounded-2xl outline-none transition-all"
+                                style={{
+                                    backgroundColor: 'var(--input-bg)',
+                                    border: '1px solid var(--input-border)',
+                                    color: 'var(--input-text)'
+                                }}
+                            />
                         </div>
+
+                        <textarea
+                            placeholder="Address"
+                            value={patientForm.address}
+                            onChange={e => setPatientForm({ ...patientForm, address: e.target.value })}
+                            className="w-full px-4 py-3 rounded-2xl outline-none transition-all resize-none"
+                            style={{
+                                backgroundColor: 'var(--input-bg)',
+                                border: '1px solid var(--input-border)',
+                                color: 'var(--input-text)'
+                            }}
+                            rows="3"
+                            required
+                        />
+
                         <div className="flex gap-3">
                             <button
                                 type="submit"
                                 disabled={submitting}
                                 className="flex-1 py-2.5 px-4 rounded-lg font-medium text-sm transition-colors"
-                                style={{ backgroundColor: 'var(--accent-indigo)', color: 'var(--text-inverse)' }}
+                                style={{
+                                    backgroundColor: 'var(--accent-indigo)',
+                                    color: 'var(--text-inverse)'
+                                }}
+                                onMouseEnter={(e) => e.target.style.backgroundColor = 'var(--button-primary-hover)'}
+                                onMouseLeave={(e) => e.target.style.backgroundColor = 'var(--accent-indigo)'}
                             >
-                                {submitting ? 'Saving...' : 'Update Patient'}
+                                {submitting ? 'Saving...' : (patientForm.id ? 'Update Patient' : 'Register Patient')}
                             </button>
-                            <button
-                                type="button"
-                                onClick={() => setEditingPatient(null)}
-                                className="px-4 py-2.5 rounded-lg font-medium text-sm transition-colors"
-                                style={{ backgroundColor: 'var(--button-secondary)', color: 'var(--text-primary)' }}
-                            >
-                                Cancel
-                            </button>
+                            {patientForm.id && (
+                                <button
+                                    type="button"
+                                    onClick={() => setPatientForm({ id: null, name: '', phone: '', age: '', gender: 'Male', address: '', email: '', dateOfBirth: '' })}
+                                    className="px-4 py-2.5 rounded-lg font-medium text-sm transition-colors"
+                                    style={{
+                                        backgroundColor: 'var(--button-secondary)',
+                                        color: 'var(--text-primary)'
+                                    }}
+                                    onMouseEnter={(e) => e.target.style.backgroundColor = 'var(--button-secondary-hover)'}
+                                    onMouseLeave={(e) => e.target.style.backgroundColor = 'var(--button-secondary)'}
+                                >
+                                    Cancel
+                                </button>
+                            )}
                         </div>
                     </form>
                 </Card>
@@ -198,7 +323,10 @@ const PatientRegistry = () => {
             <Card title="Filters" icon={Filter}>
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                     <div>
-                        <label className="block text-sm font-medium mb-1" style={{ color: 'var(--text-primary)' }}>
+                        <label
+                            className="block text-sm font-medium mb-1"
+                            style={{ color: 'var(--text-primary)' }}
+                        >
                             Search
                         </label>
                         <input
@@ -207,18 +335,29 @@ const PatientRegistry = () => {
                             value={filters.search}
                             onChange={(e) => setFilters(prev => ({ ...prev, search: e.target.value }))}
                             className="w-full px-3 py-2 rounded-md transition-all"
-                            style={{ backgroundColor: 'var(--input-bg)', border: '1px solid var(--input-border)', color: 'var(--input-text)' }}
+                            style={{
+                                backgroundColor: 'var(--input-bg)',
+                                border: '1px solid var(--input-border)',
+                                color: 'var(--input-text)'
+                            }}
                         />
                     </div>
                     <div>
-                        <label className="block text-sm font-medium mb-1" style={{ color: 'var(--text-primary)' }}>
+                        <label
+                            className="block text-sm font-medium mb-1"
+                            style={{ color: 'var(--text-primary)' }}
+                        >
                             Gender
                         </label>
                         <select
                             value={filters.gender}
                             onChange={(e) => setFilters(prev => ({ ...prev, gender: e.target.value }))}
                             className="w-full px-3 py-2 rounded-md transition-all"
-                            style={{ backgroundColor: 'var(--input-bg)', border: '1px solid var(--input-border)', color: 'var(--input-text)' }}
+                            style={{
+                                backgroundColor: 'var(--input-bg)',
+                                border: '1px solid var(--input-border)',
+                                color: 'var(--input-text)'
+                            }}
                         >
                             <option value="">All Genders</option>
                             <option value="Male">Male</option>
@@ -227,14 +366,21 @@ const PatientRegistry = () => {
                         </select>
                     </div>
                     <div>
-                        <label className="block text-sm font-medium mb-1" style={{ color: 'var(--text-primary)' }}>
+                        <label
+                            className="block text-sm font-medium mb-1"
+                            style={{ color: 'var(--text-primary)' }}
+                        >
                             Report Status
                         </label>
                         <select
                             value={filters.reportStatus}
                             onChange={(e) => setFilters(prev => ({ ...prev, reportStatus: e.target.value }))}
                             className="w-full px-3 py-2 rounded-md transition-all"
-                            style={{ backgroundColor: 'var(--input-bg)', border: '1px solid var(--input-border)', color: 'var(--input-text)' }}
+                            style={{
+                                backgroundColor: 'var(--input-bg)',
+                                border: '1px solid var(--input-border)',
+                                color: 'var(--input-text)'
+                            }}
                         >
                             <option value="">All Status</option>
                             <option value="pending">Pending</option>
@@ -247,7 +393,12 @@ const PatientRegistry = () => {
                         <button
                             onClick={() => setFilters({ search: '', gender: '', reportStatus: '' })}
                             className="w-full px-4 py-2 rounded-md transition-colors"
-                            style={{ backgroundColor: 'var(--button-secondary)', color: 'var(--text-primary)' }}
+                            style={{
+                                backgroundColor: 'var(--button-secondary)',
+                                color: 'var(--text-primary)'
+                            }}
+                            onMouseEnter={(e) => e.target.style.backgroundColor = 'var(--button-secondary-hover)'}
+                            onMouseLeave={(e) => e.target.style.backgroundColor = 'var(--button-secondary)'}
                         >
                             Clear Filters
                         </button>
@@ -299,17 +450,14 @@ const PatientRegistry = () => {
                                     </tr>
                                 </thead>
                                 <tbody className="bg-white divide-y divide-gray-200">
-                                    {(Array.isArray(patients) ? patients : []).map((patient) => (
+                                    {patients.map((patient) => (
                                         <tr key={patient._id || patient.id} className="hover:bg-gray-50">
                                             <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-indigo-600">
                                                 {patient._id ? patient._id.slice(-8) : (patient.id || 'N/A')}
                                             </td>
                                             <td className="px-6 py-4 whitespace-nowrap">
-                                                <div
-                                                    onClick={() => navigate(`/patient/${patient._id || patient.id}`)}
-                                                    className="cursor-pointer hover:bg-gray-50 rounded-lg p-1 -m-1 transition-colors group"
-                                                >
-                                                    <div className="text-sm font-medium text-gray-900 group-hover:text-indigo-600 transition-colors">
+                                                <div>
+                                                    <div className="text-sm font-medium text-gray-900">
                                                         {patient.fullName || patient.name || 'Unknown'}
                                                     </div>
                                                     <div className="text-sm text-gray-500">
@@ -337,24 +485,10 @@ const PatientRegistry = () => {
                                             </td>
                                             {user && user.role === 'Operator' && (
                                                 <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                                                    <div className="flex items-center justify-end gap-2">
+                                                    <div className="flex justify-end space-x-2">
                                                         <button
-                                                            onClick={() => setAssignTestPatient(patient)}
-                                                            className="text-emerald-600 hover:text-emerald-900 p-1 hover:bg-emerald-50 rounded"
-                                                            title="Assign Test"
-                                                        >
-                                                            <Microscope size={16} />
-                                                        </button>
-                                                        <button
-                                                            onClick={() => setUploadReportPatient(patient)}
-                                                            className="text-blue-600 hover:text-blue-900 p-1 hover:bg-blue-50 rounded"
-                                                            title="Upload Historical Report"
-                                                        >
-                                                            <Upload size={16} />
-                                                        </button>
-                                                        <button
-                                                            onClick={() => setEditingPatient(patient)}
-                                                            className="text-indigo-600 hover:text-indigo-900 p-1 hover:bg-indigo-50 rounded"
+                                                            onClick={() => handleLocalEdit(patient)}
+                                                            className="text-indigo-600 hover:text-indigo-900"
                                                             title="Edit Patient"
                                                         >
                                                             <Edit3 size={16} />
@@ -414,30 +548,7 @@ const PatientRegistry = () => {
                     </>
                 )}
             </Card>
-
-            {/* Assign Test Modal */}
-            <AssignTestModal
-                isOpen={!!assignTestPatient}
-                onClose={() => setAssignTestPatient(null)}
-                patient={assignTestPatient}
-                onSuccess={() => {
-                    setAssignTestPatient(null);
-                    // Optionally refresh patients or show a success message
-                }}
-            />
-
-            {/* Upload Historical Report Modal */}
-            <AddHistoricalReportModal
-                isOpen={!!uploadReportPatient}
-                onClose={() => setUploadReportPatient(null)}
-                patients={patients} // Pass all patients, though modal will lock to selected one
-                patient={uploadReportPatient}
-                onSuccess={() => {
-                    setUploadReportPatient(null);
-                    fetchPatients(); // Refresh to show updated status if applicable
-                }}
-            />
-        </div >
+        </div>
     );
 };
 

@@ -1,46 +1,37 @@
-
 import React, { useState } from 'react';
 import Card from '../../components/ui/Card';
 import ReportControls from './components/ReportControls';
 import ReportPreview from './components/ReportPreview';
+import PatientHistoryList from './components/PatientHistoryList';
 import { Loader2 } from 'lucide-react';
-import { useData } from '../../contexts/DataContext';
+import { useReceptionist } from '../../contexts/ReceptionistsContext';
 import { useToast } from '../../contexts/ToastContext';
+import { getPatientTestHistory, getPatientReports, downloadTestReport, sendReportEmail } from '../../api/receptionist/testorder.api';
 
-// Mock API function - in a real app this would call the backend
-const fetchPatientReport = async (patientId, reports, patients) => {
-    // Simulate API delay
-    await new Promise(resolve => setTimeout(resolve, 1000));
-
-    // Find the patient by ID
-    const patient = patients.find(p => p._id === patientId || p.id === patientId);
-    if (!patient) {
-        throw new Error('Patient not found');
-    }
-
-    // Find reports for this patient by matching patient name (or ID if available)
-    const patientReports = reports.filter(r => r.patientName === (patient.fullName || patient.name));
-
-    if (patientReports.length === 0) {
-        return null; // Return null for empty data instead of throwing error
-    }
-
-    // Return the most recent report
-    return patientReports.sort((a, b) => new Date(b.date) - new Date(a.date))[0];
-};
+import { useLocation } from 'react-router-dom';
 
 const ReportsPage = () => {
-    const { patients = [], reports = [], labConfig } = useData();
+    const { patients = [], labConfig } = useReceptionist();
     const { showToast } = useToast();
+    const location = useLocation();
 
     const [selectedPatientId, setSelectedPatientId] = useState('');
     const [reportData, setReportData] = useState(null);
+    const [history, setHistory] = useState({ orders: [], reports: [] });
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState(null);
+
+    // Effect to handle navigation state (from Patient Registry)
+    React.useEffect(() => {
+        if (location.state && location.state.patientId) {
+            handlePatientSelect(location.state.patientId);
+        }
+    }, [location.state]);
 
     const handlePatientSelect = async (patientId) => {
         if (!patientId) {
             setReportData(null);
+            setHistory({ orders: [], reports: [] });
             setError(null);
             return;
         }
@@ -50,60 +41,124 @@ const ReportsPage = () => {
         setError(null);
 
         try {
-            // In a real app we'd fetch from API: await getReport(patientId)
-            // Here we filter the global 'reports' state from Context
-            const report = await fetchPatientReport(patientId, reports, patients);
-            setReportData(report);
-            if (report) {
-                showToast('Report loaded successfully');
+            const [historyData, reportsData] = await Promise.all([
+                getPatientTestHistory(patientId),
+                getPatientReports(patientId)
+            ]);
+
+            const combinedHistory = {
+                orders: historyData.orders || [],
+                reports: reportsData || []
+            };
+
+            setHistory(combinedHistory);
+
+            // Auto-select the most recent report if available
+            if (combinedHistory.reports && combinedHistory.reports.length > 0) {
+                setReportData(combinedHistory.reports[0]);
+                showToast('Patient history loaded');
             } else {
-                showToast('No reports found for this patient', 'info');
+                setReportData(null);
+                showToast('No completed reports found', 'info');
             }
         } catch (err) {
+            console.error(err);
             setError(err.message);
             setReportData(null);
+            setHistory({ orders: [], reports: [] });
             showToast(err.message, 'error');
         } finally {
             setIsLoading(false);
         }
     };
 
-    const handleDownloadPDF = () => {
-        if (!reportData) return;
-
-        // For now, we'll use window.print() as in the existing ReportModal
-        // In a real implementation, you'd use jsPDF or html2canvas
-        const printContent = document.getElementById('report-preview');
-        if (printContent) {
-            const originalContent = document.body.innerHTML;
-            document.body.innerHTML = printContent.innerHTML;
-            window.print();
-            document.body.innerHTML = originalContent;
-            window.location.reload(); // Refresh to restore the app
+    const handleReportSelect = (report) => {
+        setReportData(report);
+        // Scroll to top of preview on mobile
+        const previewElement = document.getElementById('report-preview-container');
+        if (previewElement) {
+            previewElement.scrollIntoView({ behavior: 'smooth' });
         }
     };
 
+    const handleDownloadPDF = async (reportToDownload = null) => {
+        const targetReport = reportToDownload || reportData;
+        if (!targetReport || !targetReport._id) return;
+
+        try {
+            showToast('Downloading report...', 'info');
+            const blob = await downloadTestReport(targetReport._id);
+
+            // Create a URL for the blob
+            const url = window.URL.createObjectURL(new Blob([blob]));
+            const link = document.createElement('a');
+            link.href = url;
+
+            // Set filename
+            const filename = `Report-${targetReport.patientId?.fullName || 'Patient'}-${new Date().toISOString().split('T')[0]}.pdf`;
+            link.setAttribute('download', filename);
+
+            // Append to body, click, and cleanup
+            document.body.appendChild(link);
+            link.click();
+            link.parentNode.removeChild(link);
+            window.URL.revokeObjectURL(url);
+
+            showToast('Download started');
+        } catch (error) {
+            console.error('Download error:', error);
+            showToast('Failed to download report', 'error');
+        }
+    };
+
+    const handleSendEmail = async (patientId) => {
+        if (!patientId) return;
+        try {
+            showToast('Sending report via email...', 'info');
+            await sendReportEmail(patientId);
+            showToast('Report sent successfully', 'success');
+        } catch (error) {
+            console.error('Email error:', error);
+            showToast(error.message || 'Failed to send email', 'error');
+        }
+    };
+
+
+
     return (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 animate-in fade-in min-h-[600px]">
-            {/* Sidebar - Report Controls */}
-            <div className="lg:col-span-1">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 animate-in fade-in min-h-[600px]">
+            {/* Sidebar - Controls & History */}
+            <div className="lg:col-span-4 space-y-6">
                 <ReportControls
                     patients={patients}
                     selectedPatientId={selectedPatientId}
                     onPatientSelect={handlePatientSelect}
                     reportData={reportData}
-                    onDownloadPDF={handleDownloadPDF}
+                    onDownloadPDF={() => handleDownloadPDF(null)}
+                    onSendEmail={() => handleSendEmail(selectedPatientId)}
                     isLoading={isLoading}
                 />
+
+                {selectedPatientId && (
+                    <Card title="Patient History" className="max-h-[600px] overflow-y-auto">
+                        <PatientHistoryList
+                            history={history}
+                            onSelectReport={handleReportSelect}
+                            onDownloadReport={handleDownloadPDF}
+                            onSendEmail={handleSendEmail}
+                            isLoading={isLoading}
+                        />
+                    </Card>
+                )}
             </div>
 
             {/* Main Content - Report Preview */}
-            <div className="lg:col-span-2">
+            <div className="lg:col-span-8" id="report-preview-container">
                 {isLoading ? (
                     <Card title="Loading Report" icon={Loader2} className="h-fit">
                         <div className="flex items-center justify-center py-20">
                             <Loader2 className="animate-spin text-indigo-600" size={48} />
-                            <span className="ml-4 text-lg font-bold text-slate-600">Loading report...</span>
+                            <span className="ml-4 text-lg font-bold text-slate-600">Loading history...</span>
                         </div>
                     </Card>
                 ) : (
@@ -114,6 +169,8 @@ const ReportsPage = () => {
                     />
                 )}
             </div>
+
+
         </div>
     );
 };

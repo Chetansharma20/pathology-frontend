@@ -9,9 +9,9 @@ import { getLabTests } from '../api/admin/labTest.api';
 import { getLabDetails, updateLabDetails } from '../api/admin/lab.api';
 import { getRevenueStats, getRevenueAnalytics } from '../api/admin/revenue.api';
 
-const DataContext = createContext(null);
+const AdminContext = createContext(null);
 
-export const DataProvider = ({ children }) => {
+export const AdminProvider = ({ children }) => {
     // Global Data State
     const [patients, setPatients] = useState([]);
     const [totalPatients, setTotalPatients] = useState(0);
@@ -19,6 +19,7 @@ export const DataProvider = ({ children }) => {
     const [doctors, setDoctors] = useState([]);
     const [totalDoctors, setTotalDoctors] = useState(0);
     const [expenses, setExpenses] = useState([]);
+    const [reports, setReports] = useState([]);
     const [labTests, setLabTests] = useState([]);
     const [revenueStats, setRevenueStats] = useState({ totalRevenue: 0, totalCommission: 0, netRevenue: 0 });
     const [monthlyRevenue, setMonthlyRevenue] = useState([]);
@@ -45,7 +46,7 @@ export const DataProvider = ({ children }) => {
 
         // Get current month's revenue from monthly breakdown
         const currentMonth = new Date().getMonth() + 1;
-        const currentMonthData = monthlyRevenue.find(m => m._id === currentMonth);
+        const currentMonthData = monthlyRevenue.find(m => m.month === currentMonth); // Changed from m._id to m.month
         const calculatedMonthlyRevenue = currentMonthData ? currentMonthData.totalRevenue : 0;
 
         return {
@@ -66,7 +67,7 @@ export const DataProvider = ({ children }) => {
             // Commission - from revenue stats API
             totalCommission: revenueStats.totalCommission || 0
         };
-    }, [expenses, revenueStats, monthlyRevenue, todayRevenue]);
+    }, [revenueStats, monthlyRevenue, todayRevenue, expenseStats]);
 
     // Fetch Today's Patients
     const fetchTodayPatients = useCallback(async () => {
@@ -143,8 +144,9 @@ export const DataProvider = ({ children }) => {
 
             // 7. Today's Patients
             if (tpRes && tpRes.data) {
-                const list = Array.isArray(tpRes.data) ? tpRes.data : (tpRes.data.data || []);
-                setTodayPatients(list);
+                // Handle nested structure: tpRes.data.data contains the array
+                const list = tpRes.data.data || tpRes.data || [];
+                setTodayPatients(Array.isArray(list) ? list : []);
             }
 
             // 8. Revenue Stats
@@ -153,20 +155,29 @@ export const DataProvider = ({ children }) => {
             }
 
             // 9 & 10. Unified Revenue Analytics
-            if (analyticsRes && analyticsRes.data) {
-                // data = { yearlyTotal: {}, monthly: [], daily: [] }
-                const { monthly, daily } = analyticsRes.data;
+            if (analyticsRes && (analyticsRes.data || analyticsRes.monthly)) {
+                console.log('AdminContext - Revenue Analytics Response:', analyticsRes);
+
+                // Handle nested structure: response.data contains { monthly: [], daily: [], yearlyTotal: {} }
+                const data = analyticsRes.data || analyticsRes;
+                const { monthly, daily } = data;
 
                 // Set Monthly Breakdown
                 setMonthlyRevenue(Array.isArray(monthly) ? monthly : []);
 
                 // Set Today's Revenue (Daily)
-                const dailyData = Array.isArray(daily) ? daily : [];
-                const today = new Date().getDate();
-                const todayData = dailyData.find(d => d.day === today); // Note: backend now returns 'day', not '_id.day'
-                setTodayRevenue(todayData ? todayData.totalRevenue : 0);
-            }
+                if (daily && Array.isArray(daily)) {
+                    // Find today's entry (e.g., day matches today's date)
+                    // The backend returns daily stats for the current month
+                    const today = new Date().getDate();
+                    const todayStat = daily.find(d => d.day === today);
 
+                    setTodayRevenue((todayStat?.totalRevenue || 0));
+
+                    // Also useful to store the whole daily array
+                    // setDailyRevenueStats(daily); // If needed
+                }
+            }
             // 11. Expense Stats
             if (expStatsRes && expStatsRes.data) {
                 // If backend returns { monthlyTotal, yearlyTotal } directly or nested
@@ -180,7 +191,13 @@ export const DataProvider = ({ children }) => {
 
             // 12. Total Patients Count
             if (totalPatientsRes && totalPatientsRes.data) {
-                setTotalPatients(totalPatientsRes.data.totalPatients || 0);
+                console.log('AdminContext - Total Patients Response:', totalPatientsRes);
+                // Handle nested structure: totalPatientsRes.data.data.totalPatients or totalPatientsRes.data.totalPatients
+                const count = totalPatientsRes.data.data?.totalPatients ||
+                    totalPatientsRes.data.totalPatients ||
+                    totalPatientsRes.data.data?.count || 0;
+                console.log('AdminContext - Setting total patients to:', count);
+                setTotalPatients(count);
             }
 
         } catch (err) {
@@ -211,11 +228,12 @@ export const DataProvider = ({ children }) => {
     };
 
     return (
-        <DataContext.Provider value={{
+        <AdminContext.Provider value={{
             patients, setPatients,
             todayPatients, setTodayPatients, refreshTodayPatients: fetchTodayPatients,
             doctors, setDoctors,
             expenses, setExpenses,
+            reports, setReports,
             labTests, setLabTests,
             labConfig, updateLabSettings,
             metrics: { ...metrics, totalPatients }, // Include totalPatients in metrics
@@ -223,14 +241,14 @@ export const DataProvider = ({ children }) => {
             refreshData: fetchData
         }}>
             {children}
-        </DataContext.Provider>
+        </AdminContext.Provider>
     );
 };
 
-export const useData = () => {
-    const context = useContext(DataContext);
+export const useAdmin = () => {
+    const context = useContext(AdminContext);
     if (!context) {
-        throw new Error('useData must be used within a DataProvider');
+        throw new Error('useAdmin must be used within an AdminProvider');
     }
     return context;
 };

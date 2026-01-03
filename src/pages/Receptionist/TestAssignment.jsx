@@ -2,15 +2,20 @@
 import React, { useState, useEffect } from 'react';
 import Card from '../../components/ui/Card';
 import { UserCheck, Microscope, Trash2, Stethoscope, Loader2 } from 'lucide-react';
-import { useData } from '../../contexts/DataContext';
+import { useReceptionist } from '../../contexts/ReceptionistsContext';
 import { useToast } from '../../contexts/ToastContext';
-import { assignTestsToPatient } from '../../api/receptionist/reports.api';
+import { createTestOrder } from '../../api/receptionist/testorder.api';
 import { useLocation } from 'react-router-dom';
 
 const TestAssignment = () => {
     const location = useLocation();
-    const { patients = [], labTests = [], doctors = [] } = useData();
+    const contextData = useReceptionist();
     const { showToast } = useToast();
+
+    // Ensure all data are arrays with safety checks
+    const patients = Array.isArray(contextData?.patients) ? contextData.patients : [];
+    const labTests = Array.isArray(contextData?.labTests) ? contextData.labTests : [];
+    const doctors = Array.isArray(contextData?.doctors) ? contextData.doctors : [];
 
     const [selectedPatient, setSelectedPatient] = useState('');
     const [selectedDoctor, setSelectedDoctor] = useState('');
@@ -23,6 +28,15 @@ const TestAssignment = () => {
             setSelectedPatient(location.state.patientId);
         }
     }, [location.state]);
+
+    // Debug: Log the data from context
+    useEffect(() => {
+        console.log('TestAssignment - Data from context:', {
+            patients: patients.length,
+            labTests: labTests.length,
+            doctors: doctors.length
+        });
+    }, [patients, labTests, doctors]);
 
     // Use labTests from context, fallback if empty
     const availableTests = labTests.length > 0 ? labTests : [];
@@ -59,22 +73,31 @@ const TestAssignment = () => {
 
         try {
             setSubmitting(true);
-            const response = await assignTestsToPatient({
+            const response = await createTestOrder({
                 patientId: selectedPatient,
                 doctorId: selectedDoctor,
-                testIds: assignedTests.map(t => t.id)
+                testIds: assignedTests.map(t => t._id || t.id)
             });
 
-            if (response.statusCode === 201 || response.status === 201) {
+            console.log('Test Assignment Response:', response);
+
+            // Check if the response indicates success
+            // The API returns the data payload directly on success (e.g. { testOrder: ..., bill: ... })
+            // or throws an error on failure. So if we get here with a valid object, it's a success.
+            if (response && (response.testOrder || response.success || response.statusCode === 201)) {
                 showToast(`Tests assigned successfully to ${patient.fullName || patient.name}`, 'success');
                 // Reset form
                 setSelectedPatient('');
                 setSelectedDoctor('');
                 setAssignedTests([]);
+            } else {
+                console.error('Test assignment failed - Unexpected response format:', response);
+                throw new Error(response.message || 'Failed to assign tests');
             }
         } catch (error) {
             console.error('Test Assignment Error:', error);
-            showToast(error.response?.data?.message || 'Failed to assign tests', 'error');
+            console.error('Error details:', error.response?.data);
+            showToast(error.response?.data?.message || error.message || 'Failed to assign tests', 'error');
         } finally {
             setSubmitting(false);
         }

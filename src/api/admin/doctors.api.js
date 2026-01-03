@@ -6,7 +6,7 @@ export const getDoctors = async (params = {}) => {
       params,
     });
     // response is the backend body.
-    return response;
+    return response.data;
   } catch (error) {
     console.error("Error fetching doctors:", error);
     throw error;
@@ -16,7 +16,7 @@ export const getDoctors = async (params = {}) => {
 export const createDoctor = async (doctorData) => {
   try {
     const response = await axiosClient.post("/doctor/add", doctorData);
-    return response;
+    return response.data;
   } catch (error) {
     console.error("Error creating doctor:", error);
     throw error;
@@ -29,7 +29,7 @@ export const updateDoctor = async (doctorId, doctorData) => {
       `/doctor/update/${doctorId}`,
       doctorData
     );
-    return response;
+    return response.data;
   } catch (error) {
     console.error("Error updating doctor:", error);
     throw error;
@@ -39,7 +39,7 @@ export const updateDoctor = async (doctorId, doctorData) => {
 export const deleteDoctor = async (doctorId) => {
   try {
     const response = await axiosClient.delete(`/doctor/${doctorId}`);
-    return response; // Usually { success: true, ... }
+    return response.data; // Usually { success: true, ... }
   } catch (error) {
     console.error("Error deleting doctor:", error);
     throw error;
@@ -49,9 +49,10 @@ export const deleteDoctor = async (doctorId) => {
 export const getDoctorById = async (id) => {
   try {
     const response = await axiosClient.get(`/doctor/${id}`);
-    return response;
+    return response.data;
   } catch (error) {
     console.error("Error fetching doctor details:", error);
     throw error;
   }
 };
+
