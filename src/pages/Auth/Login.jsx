@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { Stethoscope, ShieldCheck, Lock } from 'lucide-react';
+import { Stethoscope, ShieldCheck, Lock, Eye, EyeOff } from 'lucide-react';
 import Input from '../../components/ui/Input';
 import { useAuth } from '../../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
@@ -8,9 +8,10 @@ import { useNavigate } from 'react-router-dom';
 const Login = () => {
   const { login } = useAuth();
   const navigate = useNavigate();
-  const [credentials, setCredentials] = useState({ user: '', pass: '' });
+  const [credentials, setCredentials] = useState({ email: '', pass: '' });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
 
   // Updated styling constants to match the design system
   const styles = {
@@ -36,17 +37,16 @@ const Login = () => {
     setLoading(true);
 
     try {
-      const result = await login(credentials.user, credentials.pass);
-      if (result.success) {
-        // Navigation is handled by the useEffect/logic in the parent or AuthContext return, 
-        // but strictly speaking, we might want to navigate here if AuthContext doesn't auto-redirect.
-        // Based on previous code, simple navigation happens after login:
-        navigate(result.user.role === 'Admin' ? '/dashboard' : '/patients');
+      const result = await login(credentials.email, credentials.pass);
+      if (result.success && result.user) {
+        // Navigate based on role: Admin to admin dashboard, Operator to receptionist dashboard
+        const destination = result.user.role === 'Admin' ? '/dashboard' : '/receptionist-dashboard';
+        navigate(destination);
       } else {
         setError(result.message || 'Login failed');
       }
     } catch (err) {
-      setError('An unexpected error occurred.');
+      setError(err.message || 'An unexpected error occurred.');
       console.error(err);
     } finally {
       setLoading(false);
@@ -79,20 +79,31 @@ const Login = () => {
           )}
 
           <Input
-            label="Username"
+            label="Email Address"
+            type="email"
             icon={ShieldCheck}
-            placeholder="admin or staff"
-            value={credentials.user}
-            onChange={e => setCredentials({ ...credentials, user: e.target.value })}
+            placeholder="Enter your email"
+            value={credentials.email}
+            onChange={e => setCredentials({ ...credentials, email: e.target.value })}
           />
-          <Input
-            label="Password"
-            type="password"
-            icon={Lock}
-            placeholder="••••••••"
-            value={credentials.pass}
-            onChange={e => setCredentials({ ...credentials, pass: e.target.value })}
-          />
+          <div className="relative">
+            <Input
+              label="Password"
+              type={showPassword ? 'text' : 'password'}
+              icon={Lock}
+              placeholder="Enter your password"
+              value={credentials.pass}
+              onChange={e => setCredentials({ ...credentials, pass: e.target.value })}
+            />
+            <button
+              type="button"
+              onClick={() => setShowPassword(!showPassword)}
+              className="absolute right-3 top-9 p-1 rounded-md transition-colors hover:bg-gray-100"
+              style={{ color: 'var(--text-secondary)' }}
+            >
+              {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+            </button>
+          </div>
           <button
             type="submit"
             disabled={loading}
@@ -102,12 +113,6 @@ const Login = () => {
             {loading ? 'Signing in...' : 'Login'}
           </button>
         </form>
-
-        <div className="mt-6 text-center">
-          <div className="text-xs font-medium uppercase tracking-wide px-4 py-2 rounded-lg inline-block" style={{ color: 'var(--text-muted)', backgroundColor: 'var(--bg-input)' }}>
-            admin/admin • staff/staff
-          </div>
-        </div>
       </div>
     </div>
   );

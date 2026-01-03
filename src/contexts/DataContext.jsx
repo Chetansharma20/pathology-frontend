@@ -1,33 +1,26 @@
-import React, { createContext, useContext, useState, useEffect, useMemo, useCallback } from 'react';
 
-// APIs
-import { getPatients, getTodayPatients, getTotalPatientCount } from '../api/receptionist/patient.api';
+import React, { createContext, useContext, useState, useEffect, useMemo } from 'react';
+
+// APIs - We will implement these properly later
+import { getPatients } from '../api/receptionist/patient.api';
 import { getDoctors } from '../api/admin/doctors.api';
-import { getExpenses, getExpenseStats } from '../api/admin/expenses.api';
-import { getReports } from '../api/receptionist/reports.api';
+import { getExpenses } from '../api/admin/expenses.api';
 import { getLabTests } from '../api/admin/labTest.api';
-import { getLabDetails, updateLabDetails } from '../api/admin/lab.api';
-import { getRevenueStats, getRevenueAnalytics } from '../api/admin/revenue.api';
 
 const DataContext = createContext(null);
 
 export const DataProvider = ({ children }) => {
     // Global Data State
     const [patients, setPatients] = useState([]);
-    const [totalPatients, setTotalPatients] = useState(0);
-    const [todayPatients, setTodayPatients] = useState([]);
     const [doctors, setDoctors] = useState([]);
-    const [totalDoctors, setTotalDoctors] = useState(0);
     const [expenses, setExpenses] = useState([]);
+    const [bills, setBills] = useState([]);
+    const [sampleQueue, setSampleQueue] = useState([]);
     const [labTests, setLabTests] = useState([]);
-    const [revenueStats, setRevenueStats] = useState({ totalRevenue: 0, totalCommission: 0, netRevenue: 0 });
-    const [monthlyRevenue, setMonthlyRevenue] = useState([]);
-    const [todayRevenue, setTodayRevenue] = useState(0);
-    const [expenseStats, setExpenseStats] = useState({ monthlyTotal: 0, yearlyTotal: 0, allTimeTotal: 0 });
 
-    // Lab Configuration with default fallback
+    // Lab Configuration
     const [labConfig, setLabConfig] = useState({
-        labName: "DIGITOS PATHOLOGY",
+        name: "DIGITOS PATHOLOGY",
         address: "CHHATRAPATI SAMBHAJINAGAR, MAHARASHTRA",
         contact: "98888 77777",
         timings: "08:00 AM - 09:00 PM"
@@ -40,187 +33,62 @@ export const DataProvider = ({ children }) => {
     const todayDate = new Date().toLocaleDateString();
 
     const metrics = useMemo(() => {
-        // All metrics now come from backend APIs - no frontend calculations
-        // This is more efficient and keeps business logic in the backend
+        const dailyCollection = bills.filter(b => b.date === todayDate).reduce((acc, b) => acc + b.finalAmount, 0);
+        const totalExpenses = expenses.reduce((acc, e) => acc + e.amount, 0);
 
-        // Get current month's revenue from monthly breakdown
-        const currentMonth = new Date().getMonth() + 1;
-        const currentMonthData = monthlyRevenue.find(m => m._id === currentMonth);
-        const calculatedMonthlyRevenue = currentMonthData ? currentMonthData.totalRevenue : 0;
+        const docRanking = doctors.map(d => ({
+            ...d,
+            billCount: bills.filter(b => b.doctorId === d.id).length,
+            revenue: bills.filter(b => b.doctorId === d.id).reduce((acc, b) => acc + b.finalAmount, 0)
+        })).sort((a, b) => b.revenue - a.revenue);
 
-        return {
-            // Today's revenue - from getDailyRevenue API
-            dailyCollection: todayRevenue,
-            // Monthly expenses - from backend expense stats
-            monthlyExpenses: expenseStats.monthlyTotal || 0,
-            // Total expenses - from backend expense stats (all-time)
-            totalExpenses: expenseStats.allTimeTotal || 0,
-            // Yearly expenses - optional but available
-            yearlyExpenses: expenseStats.yearlyTotal || 0,
-            // Current month revenue - from monthly breakdown API
-            monthlyRevenue: calculatedMonthlyRevenue,
-            // All-time total revenue - from revenue stats API
-            totalRevenue: revenueStats.totalRevenue || 0,
-            // Net revenue - from revenue stats API
-            netRevenue: revenueStats.netRevenue || 0,
-            // Commission - from revenue stats API
-            totalCommission: revenueStats.totalCommission || 0
-        };
-    }, [expenses, revenueStats, monthlyRevenue, todayRevenue]);
+        return { dailyCollection, totalExpenses, docRanking };
+    }, [bills, expenses, doctors, todayDate]);
 
-    // Fetch Today's Patients
-    const fetchTodayPatients = useCallback(async () => {
-        try {
-            const response = await getTodayPatients();
-            if (response && response.data) {
-                // Backend might return direct array or { data: [] }
-                const list = Array.isArray(response.data) ? response.data : (response.data.data || []);
-                setTodayPatients(list);
-            }
-        } catch (err) {
-            console.error("Failed to fetch today's patients", err);
-        }
-    }, []);
 
     // Initial Data Fetch
-    const fetchData = useCallback(async () => {
-        setLoading(true);
-        try {
-            // Fetch all initial data using Promise.allSettled to prevent one failure from blocking others
-            const currentYear = new Date().getFullYear();
-            const currentMonth = new Date().getMonth() + 1;
-            const results = await Promise.allSettled([
-                getPatients(),
-                getDoctors(),
-                getExpenses(),
-                getReports(),
-                getLabTests(),
-                getLabDetails(),
-                getTodayPatients(),
-                getRevenueStats(),
-                getRevenueAnalytics(currentYear, currentMonth),
-                getExpenseStats(),
-                getTotalPatientCount()
-            ]);
+    useEffect(() => {
+        const fetchData = async () => {
+            setLoading(true);
+            try {
+                // Fetch all initial data
+                const [pData, dData, eData, rData, tData] = await Promise.all([
+                    getPatients().catch(err => { console.error("Patients fetch failed", err); return []; }),
+                    getDoctors().catch(err => { console.error("Doctors fetch failed", err); return []; }),
+                    getExpenses().catch(err => { console.error("Expenses fetch failed", err); return []; }),
+                    getLabTests().catch(err => { console.error("Lab Tests fetch failed", err); return []; })
+                ]);
 
-            const [pRes, dRes, eRes, rRes, tRes, lRes, tpRes, revStatsRes, analyticsRes, expStatsRes, totalPatientsRes] = results.map(r => r.status === 'fulfilled' ? r.value : null);
+                if (pData && (pData.data || Array.isArray(pData))) setPatients(pData.data || pData);
+                if (dData && (dData.data || Array.isArray(dData))) setDoctors(dData.data || dData);
+                if (eData && (eData.data || Array.isArray(eData))) setExpenses(eData.data || eData);
+                if (tData && (tData.data || Array.isArray(tData))) setLabTests(tData.data || tData);
 
-            // 1. Patients
-            if (pRes && pRes.data) {
-                const list = pRes.data.patients || pRes.data.data || pRes.data || [];
-                setPatients(Array.isArray(list) ? list : []);
+            } catch (err) {
+                console.error("Failed to fetch initial data", err);
+            } finally {
+                setLoading(false);
             }
+        };
 
-            // 2. Doctors
-            if (dRes && dRes.data) {
-                const list = Array.isArray(dRes.data) ? dRes.data : (dRes.data.data || []);
-                setDoctors(list);
-            }
-
-            // 3. Expenses
-            if (eRes && eRes.data) {
-                // Backend returns { data: [], pagination: {} }
-                const list = eRes.data.data || eRes.data || [];
-                setExpenses(Array.isArray(list) ? list : []);
-            }
-
-            // 4. Reports
-            if (rRes && rRes.data) {
-                const list = rRes.data.data || rRes.data || [];
-                setReports(Array.isArray(list) ? list : []);
-            }
-
-            // 5. Lab Tests
-            if (tRes && tRes.data) {
-                const list = tRes.data.data || tRes.data || [];
-                setLabTests(Array.isArray(list) ? list : []);
-            }
-
-            // 6. Lab Details
-            if (lRes && lRes.data) {
-                setLabConfig(prev => ({ ...prev, ...lRes.data }));
-            }
-
-            // 7. Today's Patients
-            if (tpRes && tpRes.data) {
-                const list = Array.isArray(tpRes.data) ? tpRes.data : (tpRes.data.data || []);
-                setTodayPatients(list);
-            }
-
-            // 8. Revenue Stats
-            if (revStatsRes && revStatsRes.data && revStatsRes.data.stats) {
-                setRevenueStats(revStatsRes.data.stats);
-            }
-
-            // 9 & 10. Unified Revenue Analytics
-            if (analyticsRes && analyticsRes.data) {
-                // data = { yearlyTotal: {}, monthly: [], daily: [] }
-                const { monthly, daily } = analyticsRes.data;
-
-                // Set Monthly Breakdown
-                setMonthlyRevenue(Array.isArray(monthly) ? monthly : []);
-
-                // Set Today's Revenue (Daily)
-                const dailyData = Array.isArray(daily) ? daily : [];
-                const today = new Date().getDate();
-                const todayData = dailyData.find(d => d.day === today); // Note: backend now returns 'day', not '_id.day'
-                setTodayRevenue(todayData ? todayData.totalRevenue : 0);
-            }
-
-            // 11. Expense Stats
-            if (expStatsRes && expStatsRes.data) {
-                // If backend returns { monthlyTotal, yearlyTotal } directly or nested
-                const stats = expStatsRes.data;
-                setExpenseStats({
-                    monthlyTotal: stats.monthlyTotal || 0,
-                    yearlyTotal: stats.yearlyTotal || 0,
-                    allTimeTotal: stats.allTimeTotal || 0
-                });
-            }
-
-            // 12. Total Patients Count
-            if (totalPatientsRes && totalPatientsRes.data) {
-                setTotalPatients(totalPatientsRes.data.totalPatients || 0);
-            }
-
-        } catch (err) {
-            console.error("Critical error during initial data fetch", err);
-        } finally {
-            setLoading(false);
-        }
+        fetchData();
     }, []);
 
-    useEffect(() => {
-        if (localStorage.getItem('accessToken')) {
-            fetchData();
-        }
-    }, [fetchData]);
-
-    const updateLabSettings = async (newSettings) => {
-        try {
-            const response = await updateLabDetails(newSettings);
-            if (response && response.data) {
-                setLabConfig(prev => ({ ...prev, ...response.data }));
-                return { success: true };
-            }
-            return { success: false, message: response?.message || "Update failed" };
-        } catch (error) {
-            console.error("Failed to update lab settings", error);
-            throw error;
-        }
+    const updateLabSettings = (newSettings) => {
+        setLabConfig(prev => ({ ...prev, ...newSettings }));
     };
 
     return (
         <DataContext.Provider value={{
             patients, setPatients,
-            todayPatients, setTodayPatients, refreshTodayPatients: fetchTodayPatients,
             doctors, setDoctors,
             expenses, setExpenses,
+            bills, setBills,
+            sampleQueue, setSampleQueue,
             labTests, setLabTests,
             labConfig, updateLabSettings,
-            metrics: { ...metrics, totalPatients }, // Include totalPatients in metrics
-            loading,
-            refreshData: fetchData
+            metrics,
+            loading
         }}>
             {children}
         </DataContext.Provider>

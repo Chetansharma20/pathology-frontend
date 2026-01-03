@@ -4,9 +4,10 @@ import axiosClient from '../axiosClient';
 export const getBillById = async (billId) => {
     try {
         const response = await axiosClient.get(`/bills/${billId}`);
-        return response;
+        return response.data;
     } catch (error) {
         console.error('Error fetching bill:', error);
         throw error;
     }
 };
+

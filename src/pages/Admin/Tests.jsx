@@ -32,7 +32,7 @@ const LabTestManagement = () => {
         category: 'Blood',
         price: '',
         status: 'Active',
-        labId: user?.labId || 'LAB001',
+        labId: user?.labId,
         parameters: []
     });
 
@@ -156,7 +156,7 @@ const LabTestManagement = () => {
             category: 'Blood',
             price: '',
             status: 'Active',
-            labId: user?.labId || 'LAB001',
+            labId: user?.labId,
             parameters: []
         });
         setFormErrors({});
@@ -246,7 +246,7 @@ const LabTestManagement = () => {
             category: test.category || 'Blood',
             price: test.price?.toString() || '',
             status: test.status || 'Active',
-            labId: test.labId || user?.labId || 'LAB001',
+            labId: test.labId || user?.labId,
             parameters: test.parameters || []
         });
         setShowForm(true);

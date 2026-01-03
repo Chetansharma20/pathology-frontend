@@ -4,7 +4,7 @@ import axiosClient from '../axiosClient';
 export const getExpenses = async (params = {}) => {
   try {
     const response = await axiosClient.get('/expense/all', { params });
-    return response; // Expected: { data: [], pagination: {}, ... }
+    return response.data; // Expected: { data: [], pagination: {}, ... }
   } catch (error) {
     console.error('Error fetching expenses:', error);
     throw error;
@@ -15,7 +15,7 @@ export const createExpense = async (expenseData) => {
   try {
     // expenseData is likely FormData for file upload
     const response = await axiosClient.post('/expense/add', expenseData);
-    return response;
+    return response.data;
   } catch (error) {
     console.error('Error creating expense:', error);
     throw error;
@@ -27,7 +27,7 @@ export const createBatchExpenses = async (expensesData) => {
   try {
     // expensesData can be JSON object or FormData
     const response = await axiosClient.post('/expense/batch', expensesData);
-    return response;
+    return response.data;
   } catch (error) {
     console.error('Error batch creating expenses:', error);
     throw error;
@@ -37,7 +37,7 @@ export const createBatchExpenses = async (expensesData) => {
 export const updateExpense = async (expenseId, expenseData) => {
   try {
     const response = await axiosClient.put(`/expense/update/${expenseId}`, expenseData);
-    return response;
+    return response.data;
   } catch (error) {
     console.error('Error updating expense:', error);
     throw error;
@@ -47,7 +47,7 @@ export const updateExpense = async (expenseId, expenseData) => {
 export const deleteExpense = async (expenseId) => {
   try {
     const response = await axiosClient.delete(`/expense/delete/${expenseId}`);
-    return response;
+    return response.data;
   } catch (error) {
     console.error('Error deleting expense:', error);
     throw error;
@@ -57,7 +57,7 @@ export const deleteExpense = async (expenseId) => {
 export const getExpenseById = async (expenseId) => {
   try {
     const response = await axiosClient.get(`/expense/${expenseId}`);
-    return response;
+    return response.data;
   } catch (error) {
     console.error('Error fetching expense details:', error);
     throw error;
@@ -67,7 +67,7 @@ export const getExpenseById = async (expenseId) => {
 export const getExpenseReport = async (params) => {
   try {
     const response = await axiosClient.get('/expense/reports', { params });
-    return response;
+    return response.data;
   } catch (error) {
     console.error('Error fetching expense report:', error);
     throw error;
@@ -80,7 +80,7 @@ export const downloadExpenseReport = async (params) => {
       params,
       responseType: 'blob'
     });
-    return response; // This will be the blob (unpacked by axiosClient interceptor)
+    return response.data; // This will be the blob (unpacked by axiosClient interceptor)
   } catch (error) {
     console.error('Error downloading expense report:', error);
     throw error;
@@ -90,9 +90,10 @@ export const downloadExpenseReport = async (params) => {
 export const getExpenseStats = async () => {
   try {
     const response = await axiosClient.get('/expense/stats');
-    return response;
+    return response.data;
   } catch (error) {
     console.error('Error fetching expense stats:', error);
     throw error;
   }
 };
+

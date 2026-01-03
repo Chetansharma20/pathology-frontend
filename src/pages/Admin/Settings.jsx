@@ -1,13 +1,12 @@
-
 import React, { useState, useEffect } from 'react';
 import Card from '../../components/ui/Card';
 import { User, Clock, Mail, MapPin, Phone } from 'lucide-react';
-import { useData } from '../../contexts/DataContext';
+import { useAdmin } from '../../contexts/AdminContext';
 import { useToast } from '../../contexts/ToastContext';
 import { useAuth } from '../../contexts/AuthContext';
 
-const SettingsSection = () => {
-    const { labConfig, updateLabSettings } = useData();
+const Settings = () => {
+    const { labConfig, updateLabSettings } = useAdmin();
     const { showToast } = useToast();
     const { user } = useAuth();
     const [isSaving, setIsSaving] = useState(false);
@@ -292,4 +291,4 @@ const SettingsSection = () => {
     );
 };
 
-export default SettingsSection;
+export default Settings;

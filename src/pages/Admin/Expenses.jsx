@@ -72,14 +72,34 @@ const ExpensesSection = () => {
                 endDate: filters.month ? '' : filters.endDate
             };
 
-            const response = await getExpenses(params);
-            // Handle nested data structure: response.data contains { data: [], pagination: {} }
-            const responseData = response.data || response;
-            setExpenses(responseData.data || responseData.expenses || []);
+            const apiResponse = await getExpenses(params);
+            console.log('Expenses API Response:', apiResponse);
+
+            // Handle the nested response structure: apiResponse.data.data contains the array
+            let expensesArray = [];
+            let paginationData = {};
+
+            if (apiResponse.data?.data && Array.isArray(apiResponse.data.data)) {
+                // Structure: { data: { data: [], pagination: {} } }
+                expensesArray = apiResponse.data.data;
+                paginationData = apiResponse.data.pagination || {};
+            } else if (apiResponse.data && Array.isArray(apiResponse.data)) {
+                // Structure: { data: [] }
+                expensesArray = apiResponse.data;
+                paginationData = apiResponse.pagination || {};
+            } else if (Array.isArray(apiResponse.expenses)) {
+                // Structure: { expenses: [] }
+                expensesArray = apiResponse.expenses;
+                paginationData = apiResponse.pagination || {};
+            }
+
+            console.log('Extracted expenses:', expensesArray);
+            setExpenses(expensesArray);
+
             setPagination(prev => ({
                 ...prev,
-                total: responseData.pagination?.totalRecords || responseData.total || 0,
-                totalPages: responseData.pagination?.totalPages || responseData.totalPages || 0
+                total: paginationData.totalRecords || apiResponse.total || 0,
+                totalPages: paginationData.totalPages || apiResponse.totalPages || 0
             }));
         } catch (error) {
             showToast('Failed to fetch expenses', 'error');

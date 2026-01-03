@@ -7,7 +7,7 @@ import { getTodayPatients } from '../../api/receptionist/patient.api';
 
 // Contexts
 import { useAuth } from '../../contexts/AuthContext';
-import { useData } from '../../contexts/DataContext';
+import { useAdmin } from '../../contexts/AdminContext';
 
 // Reusable Stat Card Component
 const StatCard = ({ title, value, icon: Icon, color, isLoading, subtitle }) => (
@@ -65,7 +65,7 @@ const AdminDashboard = () => {
         refreshTodayPatients,
         metrics = { dailyCollection: 0, monthlyExpenses: 0, totalExpenses: 0, monthlyRevenue: 0, totalRevenue: 0 },
         loading: contextLoading
-    } = useData();
+    } = useAdmin();
 
     useEffect(() => {
         if (refreshTodayPatients) {

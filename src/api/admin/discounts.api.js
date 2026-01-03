@@ -6,7 +6,7 @@ export const getDiscounts = async (activeOnly = false) => {
         const response = await axiosClient.get('/discounts/getdiscounts', {
             params: { activeOnly }
         });
-        return response;
+        return response.data;
     } catch (error) {
         console.error('Error fetching discounts:', error);
         throw error;
@@ -17,7 +17,7 @@ export const getDiscounts = async (activeOnly = false) => {
 export const createDiscount = async (discountData) => {
     try {
         const response = await axiosClient.post('/discounts/add', discountData);
-        return response;
+        return response.data;
     } catch (error) {
         console.error('Error creating discount:', error);
         throw error;
@@ -30,7 +30,7 @@ export const toggleDiscountStatus = async (discountId, isActive) => {
         const response = await axiosClient.patch(`/discounts/${discountId}/toggle`, {
             isActive
         });
-        return response;
+        return response.data;
     } catch (error) {
         console.error('Error toggling discount status:', error);
         throw error;
@@ -41,9 +41,10 @@ export const toggleDiscountStatus = async (discountId, isActive) => {
 export const deleteDiscount = async (discountId) => {
     try {
         const response = await axiosClient.delete(`/discounts/${discountId}`);
-        return response;
+        return response.data;
     } catch (error) {
         console.error('Error deleting discount:', error);
         throw error;
     }
 };
+

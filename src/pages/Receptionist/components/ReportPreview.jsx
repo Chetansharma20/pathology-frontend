@@ -68,8 +68,8 @@ const ReportPreview = ({ reportData, error, labConfig }) => {
                                 Diagnostic Report
                             </div>
                             <div className="text-xs text-slate-500 space-y-1">
-                                <p><span className="font-bold">Report ID:</span> {reportData.id}</p>
-                                <p><span className="font-bold">Date:</span> {reportData.date}</p>
+                                <p><span className="font-bold">Report ID:</span> {reportData._id}</p>
+                                <p><span className="font-bold">Date:</span> {new Date(reportData.orderDate).toLocaleDateString()}</p>
                             </div>
                         </div>
                     </div>
@@ -84,11 +84,11 @@ const ReportPreview = ({ reportData, error, labConfig }) => {
                         <div className="grid grid-cols-2 gap-4 text-sm">
                             <div>
                                 <span className="font-bold text-slate-600">Name:</span>
-                                <span className="ml-2 text-slate-800 font-black">{reportData.patientName}</span>
+                                <span className="ml-2 text-slate-800 font-black">{reportData.patientId?.fullName}</span>
                             </div>
                             <div>
                                 <span className="font-bold text-slate-600">Report ID:</span>
-                                <span className="ml-2 text-slate-800 font-black">{reportData.id}</span>
+                                <span className="ml-2 text-slate-800 font-black">{reportData._id}</span>
                             </div>
                         </div>
                     </div>
@@ -96,11 +96,11 @@ const ReportPreview = ({ reportData, error, labConfig }) => {
 
                 {/* Test Results */}
                 <div className="p-8 space-y-8">
-                    {reportData.items && reportData.items.map((test, index) => (
-                        <div key={test.id || index} className="border-b border-slate-100 pb-8 last:border-b-0">
+                    {reportData.tests && reportData.tests.map((test, index) => (
+                        <div key={test._id || index} className="border-b border-slate-100 pb-8 last:border-b-0">
                             <div className="flex items-center gap-4 mb-6">
                                 <h3 className="text-lg font-black bg-indigo-600 text-white px-6 py-3 rounded-2xl uppercase tracking-widest">
-                                    {test.name}
+                                    {test.testName}
                                 </h3>
                                 <div className="h-px flex-1 bg-slate-200"></div>
                             </div>
@@ -119,32 +119,32 @@ const ReportPreview = ({ reportData, error, labConfig }) => {
                                                 Reference Range
                                             </th>
                                             <th className="text-left py-4 px-6 font-black text-slate-700 uppercase tracking-widest text-xs">
-                                                Status
+                                                Unit
                                             </th>
                                         </tr>
                                     </thead>
                                     <tbody className="divide-y divide-slate-50">
-                                        {test.values && Object.entries(test.values).map(([param, value]) => {
-                                            const reference = test.ranges?.[param] || 'N/A';
-                                            // Simple status determination (in real app, this would be more sophisticated)
-                                            const status = value ? 'Normal' : 'Pending';
-
-                                            return (
-                                                <tr key={param} className="hover:bg-slate-25">
-                                                    <td className="py-4 px-6 font-bold text-slate-800">{param}</td>
-                                                    <td className="py-4 px-6 font-black text-indigo-600 text-lg">{value || 'Pending'}</td>
-                                                    <td className="py-4 px-6 text-slate-500 italic">{reference}</td>
-                                                    <td className="py-4 px-6">
-                                                        <span className={`px-3 py-1 rounded-full text-xs font-black uppercase tracking-widest ${status === 'Normal'
-                                                                ? 'bg-emerald-100 text-emerald-700'
-                                                                : 'bg-amber-100 text-amber-700'
-                                                            }`}>
-                                                            {status}
-                                                        </span>
-                                                    </td>
-                                                </tr>
-                                            );
-                                        })}
+                                        {test.results && test.results.map((result, rIndex) => (
+                                            <tr key={rIndex} className="hover:bg-slate-25">
+                                                <td className="py-4 px-6 font-bold text-slate-800">{result.parameterName}</td>
+                                                <td className="py-4 px-6 font-black text-indigo-600 text-lg">{result.value || 'Pending'}</td>
+                                                <td className="py-4 px-6 text-slate-500 italic">
+                                                    {
+                                                        typeof result.referenceRange === 'object' && result.referenceRange !== null
+                                                            ? `${result.referenceRange.min || ''} - ${result.referenceRange.max || ''}`
+                                                            : result.referenceRange || 'N/A'
+                                                    }
+                                                </td>
+                                                <td className="py-4 px-6 text-slate-500 font-bold">{result.unit || '-'}</td>
+                                            </tr>
+                                        ))}
+                                        {(!test.results || test.results.length === 0) && (
+                                            <tr>
+                                                <td colSpan="4" className="py-8 text-center text-slate-400 italic">
+                                                    No results entered for this test yet.
+                                                </td>
+                                            </tr>
+                                        )}
                                     </tbody>
                                 </table>
                             </div>

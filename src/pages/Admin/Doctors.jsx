@@ -122,7 +122,7 @@ const DoctorsSection = () => {
                 degree: formData.degree ? formData.degree.trim() : '',
                 address: formData.address ? formData.address.trim() : '',
                 commissionPercentage: Number(formData.commissionPercentage),
-                labId: user?.labId || 'LAB001'
+                labId: user?.labId
             };
 
             if (editingDoctor) {
@@ -194,8 +194,14 @@ const DoctorsSection = () => {
             setDetailLoading(true);
             setShowDetailModal(true);
             const response = await getDoctorById(doctorId);
-            if (response.data) {
-                setSelectedDoctorDetail(response.data);
+            console.log('View Doctor Response:', response);
+
+            // Handle different possible structures
+            // response might be the doctor object directly, or wrapped in data property
+            const doctorData = response.data || response;
+
+            if (doctorData) {
+                setSelectedDoctorDetail(doctorData);
             }
         } catch (error) {
             showToast('Failed to fetch doctor details', 'error');
