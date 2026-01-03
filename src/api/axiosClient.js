@@ -27,7 +27,7 @@ axiosClient.interceptors.request.use(
 // Response Interceptor: Handle Errors (Global)
 axiosClient.interceptors.response.use(
   (response) => {
-    return response.data; // Unpack data directly
+    return response; // Return full response, not just response.data
   },
   (error) => {
     const { response } = error;

@@ -1,8 +1,10 @@
 
 import React from 'react';
-import { Routes, Route, Navigate } from 'react-router-dom';
+import { Routes, Route, Navigate, Outlet } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import ProtectedRoute from './guards/ProtectedRoute';
+import { AdminProvider } from '../contexts/AdminContext';
+import { ReceptionistProvider } from '../contexts/ReceptionistsContext';
 
 // Layout
 import Sidebar from '../components/sidebar/Sidebar';
@@ -19,19 +21,15 @@ import Discounts from '../pages/Admin/Discounts';
 
 // Receptionist Pages
 import PatientRegistry from '../pages/Receptionist/PatientRegistry';
+import AddPatient from '../pages/Receptionist/AddPatient';
+import ReceptionistDashboard from '../pages/Receptionist/ReceptionistDashboard';
 import Billing from '../pages/Receptionist/Billing';
 import Reports from '../pages/Receptionist/Reports';
 import TestAssignment from '../pages/Receptionist/TestAssignment';
+import PendingOrders from '../pages/Receptionist/PendingOrders';
 
 import NotFound from '../components/NotFound';
 import ReportModal from '../components/ReportModal';
-
-// Contexts
-// We might need access to other contexts if pages depend on them, 
-// but ideally pages should consume contexts themselves.
-
-
-
 
 const MainLayout = ({ children }) => {
     // This layout wrapper allows us to have the Sidebar present for authenticated routes
@@ -43,10 +41,6 @@ const MainLayout = ({ children }) => {
                     {children}
                 </div>
             </main>
-            {/* Global Modals could go here if managed by context, 
-               but currently ReportModal is local state in App.js which we need to fix.
-               For now, we'll omit it until we fix the modal state. 
-           */}
         </div>
     );
 };
@@ -61,72 +55,113 @@ const PageWithLayout = ({ component: Component, ...props }) => {
 };
 
 const AppRoutes = () => {
-    const { user } = useAuth();
+    const { user, loading } = useAuth();
+
+    if (loading) {
+        return (
+            <div className="min-h-screen flex items-center justify-center bg-slate-50">
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>
+            </div>
+        );
+    }
 
     return (
         <Routes>
             <Route path="/login" element={
-                !user ? <Login /> : <Navigate to={user.role === 'Admin' ? '/dashboard' : '/patients'} replace />
+                user ? (
+                    <Navigate to={user.role === 'Admin' ? '/dashboard' : '/receptionist-dashboard'} replace />
+                ) : (
+                    <Login />
+                )
             } />
 
-            {/* Admin Routes */}
-            <Route path="/dashboard" element={
-                <ProtectedRoute allowedRoles={['Admin']}>
-                    <PageWithLayout component={Dashboard} />
-                </ProtectedRoute>
-            } />
-            <Route path="/expenses" element={
-                <ProtectedRoute allowedRoles={['Admin']}>
-                    <PageWithLayout component={Expenses} />
-                </ProtectedRoute>
-            } />
-            <Route path="/tests" element={
-                <ProtectedRoute allowedRoles={['Admin']}>
-                    <PageWithLayout component={Tests} />
-                </ProtectedRoute>
-            } />
-            <Route path="/doctors" element={
-                <ProtectedRoute allowedRoles={['Admin']}>
-                    <PageWithLayout component={Doctors} />
-                </ProtectedRoute>
-            } />
-            <Route path="/revenue" element={
-                <ProtectedRoute allowedRoles={['Admin']}>
-                    <PageWithLayout component={RevenueList} />
-                </ProtectedRoute>
-            } />
-            <Route path="/discounts" element={
-                <ProtectedRoute allowedRoles={['Admin']}>
-                    <PageWithLayout component={Discounts} />
-                </ProtectedRoute>
-            } />
-            <Route path="/settings" element={
-                <ProtectedRoute allowedRoles={['Admin']}>
-                    <PageWithLayout component={Settings} />
-                </ProtectedRoute>
-            } />
+            {/* Admin Routes with AdminContext */}
+            <Route element={
+                <AdminProvider>
+                    <Outlet />
+                </AdminProvider>
+            }>
+                <Route path="/dashboard" element={
+                    <ProtectedRoute allowedRoles={['Admin']}>
+                        <PageWithLayout component={Dashboard} />
+                    </ProtectedRoute>
+                } />
+                <Route path="/expenses" element={
+                    <ProtectedRoute allowedRoles={['Admin']}>
+                        <PageWithLayout component={Expenses} />
+                    </ProtectedRoute>
+                } />
+                <Route path="/tests" element={
+                    <ProtectedRoute allowedRoles={['Admin']}>
+                        <PageWithLayout component={Tests} />
+                    </ProtectedRoute>
+                } />
+                <Route path="/doctors" element={
+                    <ProtectedRoute allowedRoles={['Admin']}>
+                        <PageWithLayout component={Doctors} />
+                    </ProtectedRoute>
+                } />
+                <Route path="/revenue" element={
+                    <ProtectedRoute allowedRoles={['Admin']}>
+                        <PageWithLayout component={RevenueList} />
+                    </ProtectedRoute>
+                } />
+                <Route path="/discounts" element={
+                    <ProtectedRoute allowedRoles={['Admin']}>
+                        <PageWithLayout component={Discounts} />
+                    </ProtectedRoute>
+                } />
+                <Route path="/settings" element={
+                    <ProtectedRoute allowedRoles={['Admin']}>
+                        <PageWithLayout component={Settings} />
+                    </ProtectedRoute>
+                } />
+            </Route>
 
-            {/* Receptionist Routes */}
-            <Route path="/patients" element={
-                <ProtectedRoute allowedRoles={['Admin', 'Operator']}>
-                    <PageWithLayout component={PatientRegistry} />
-                </ProtectedRoute>
-            } />
-            <Route path="/assign-tests" element={
-                <ProtectedRoute allowedRoles={['Operator']}>
-                    <PageWithLayout component={TestAssignment} />
-                </ProtectedRoute>
-            } />
-            <Route path="/billing" element={
-                <ProtectedRoute allowedRoles={['Operator']}>
-                    <PageWithLayout component={Billing} />
-                </ProtectedRoute>
-            } />
-            <Route path="/reports" element={
-                <ProtectedRoute allowedRoles={['Operator']}>
-                    <PageWithLayout component={Reports} />
-                </ProtectedRoute>
-            } />
+
+            {/* Receptionist Routes with ReceptionistContext */}
+            <Route element={
+                <ReceptionistProvider>
+                    <Outlet />
+                </ReceptionistProvider>
+            }>
+                <Route path="/receptionist-dashboard" element={
+                    <ProtectedRoute allowedRoles={['Admin', 'Operator']}>
+                        <PageWithLayout component={ReceptionistDashboard} />
+                    </ProtectedRoute>
+                } />
+                <Route path="/patients" element={
+                    <ProtectedRoute allowedRoles={['Admin', 'Operator']}>
+                        <PageWithLayout component={PatientRegistry} />
+                    </ProtectedRoute>
+                } />
+                <Route path="/patients/add" element={
+                    <ProtectedRoute allowedRoles={['Admin', 'Operator']}>
+                        <PageWithLayout component={AddPatient} />
+                    </ProtectedRoute>
+                } />
+
+                <Route path="/billing" element={
+                    <ProtectedRoute allowedRoles={['Operator']}>
+                        <PageWithLayout component={Billing} />
+                    </ProtectedRoute>
+                } />
+                <Route path="/reports" element={
+                    <ProtectedRoute allowedRoles={['Operator']}>
+                        <PageWithLayout component={Reports} />
+                    </ProtectedRoute>
+                } />
+                <Route path="/pending-orders" element={
+                    <ProtectedRoute allowedRoles={['Operator']}>
+                        <PageWithLayout component={PendingOrders} />
+                    </ProtectedRoute>
+                } />
+                <Route path="/assign-tests" element={
+                    <ProtectedRoute allowedRoles={['Operator']}>
+                        <PageWithLayout component={TestAssignment} />
+                    </ProtectedRoute>
+                } />
+            </Route>
 
             {/* Redirect Root */}
             <Route path="/" element={<Navigate to="/login" replace />} />
